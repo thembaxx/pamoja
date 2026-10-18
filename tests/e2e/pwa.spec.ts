@@ -92,7 +92,7 @@ test("dark views remain accessible and phone layouts fit touch devices", async (
   page,
   browser,
 }) => {
-  await page.emulateMedia({ colorScheme: "dark" });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   for (const route of ["/about", "/", "/join/maize", "/pickups", "/supplier", "/settings"]) {
     await page.goto(route);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

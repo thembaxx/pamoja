@@ -173,6 +173,7 @@ test("reference screens fit phone, tablet and desktop and meet WCAG 2.1 AA check
   page,
 }) => {
   test.setTimeout(120000);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   for (const [route, width] of [
     ["/", 1440],
     ["/", 390],
