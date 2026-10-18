@@ -1,33 +1,36 @@
 "use client";
+import { ArrowRight } from "@phosphor-icons/react";
 import Link from "next/link";
-import { money, nextTier, poolMembers, priceFor } from "@/lib/money";
+import { closingIn, money, nextTier, poolMembers, priceFor, shortDate } from "@/lib/money";
 import type { Pool } from "@/lib/types";
-import { closeLabel, productName, useDesign } from "./design";
 import { useApp } from "./provider";
-import { EmptyState, Progress } from "./ui";
+import { Badge, EmptyState, PoolTitle, Progress } from "./ui";
 
-export function PoolTable({ pools, compact = false }: { pools: Pool[]; compact?: boolean }) {
+export function PoolTable({ pools }: { pools: Pool[] }) {
   const { data } = useApp();
-  const { href } = useDesign();
   if (!pools.length)
     return (
       <EmptyState
         title="No pools here yet"
-        description="Try another category, or create a pool for your community."
+        description="Try a different filter, or create a new pool for your community."
       />
     );
   return (
-    <div className={`ref-pool-table-scroll ${compact ? "compact" : ""}`}>
-      <table className="ref-pool-table">
+    <div className="table-scroll">
+      <table className="pool-table">
         <caption className="sr-only">Community pools and progress to the next price tier</caption>
         <thead>
           <tr>
-            <th>Pool</th>
-            <th>Members</th>
-            <th>Progress to next tier</th>
-            <th>Price now → next</th>
+            <th>Pool / product</th>
+            <th>Members & next tier</th>
+            <th>
+              Price now <span>→ next</span>
+            </th>
             <th>Closes</th>
             <th>Status</th>
+            <th>
+              <span className="sr-only">Open pool</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -37,29 +40,53 @@ export function PoolTable({ pools, compact = false }: { pools: Pool[]; compact?:
             return (
               <tr key={pool.id}>
                 <td>
-                  <Link className="ref-pool-name" href={href(`/pools/${pool.id}`)}>
-                    {productName(pool)}
+                  <Link href={`/pools/${pool.id}`} className="pool-name-link">
+                    <PoolTitle pool={pool} />
                   </Link>
                 </td>
                 <td>
-                  {count} / {next?.minMembers || pool.tiers.at(-1)?.minMembers}
+                  <div className="tier-progress">
+                    <div>
+                      <strong>
+                        {count}
+                        <span> / {next?.minMembers || pool.tiers.at(-1)?.minMembers}</span>
+                      </strong>
+                      <small>
+                        {next ? `${Math.max(0, next.minMembers - count)} to go` : "Best price"}
+                      </small>
+                    </div>
+                    <Progress
+                      value={count}
+                      max={next?.minMembers || count}
+                      label={`${pool.name} members toward the next tier`}
+                    />
+                  </div>
+                </td>
+                <td className="price-cell">
+                  <strong>{money(priceFor(pool, data.memberships), data.currency)}</strong>
+                  {next ? (
+                    <span>→ {money(next.price, data.currency)}</span>
+                  ) : (
+                    <span>Final tier</span>
+                  )}
+                </td>
+                <td className="closing-cell">
+                  <strong>{shortDate(pool.closesAt)}</strong>
+                  <small>
+                    {pool.status === "Open" ? closingIn(pool.closesAt) : "Price locked"}
+                  </small>
                 </td>
                 <td>
-                  <Progress
-                    value={count}
-                    max={next?.minMembers || count || 1}
-                    label={`${pool.name} members toward the next tier`}
-                  />
+                  <Badge status={pool.status} />
                 </td>
                 <td>
-                  {money(priceFor(pool, data.memberships), data.currency)}
-                  {next ? ` → ${money(next.price, data.currency)}` : ""}
-                </td>
-                <td>{closeLabel(pool.closesAt)}</td>
-                <td>
-                  <span className={pool.status === "Open" ? "ref-green" : "ref-muted"}>
-                    {pool.status === "PickupOpen" ? "Pickup open" : pool.status}
-                  </span>
+                  <Link
+                    href={`/pools/${pool.id}`}
+                    className="row-arrow"
+                    aria-label={`View ${pool.name}`}
+                  >
+                    <ArrowRight size={19} />
+                  </Link>
                 </td>
               </tr>
             );

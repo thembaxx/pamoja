@@ -12,13 +12,13 @@ import {
   X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import type { Category, Pool } from "@/lib/types";
 
 export const categoryNames: Record<Category, string> = {
   maize: "Maize meal",
-  oil: "Cooking oil",
-  rice: "Long-grain rice",
+  oil: "Sunflower oil",
+  rice: "Long grain rice",
   soap: "Laundry soap",
 };
 export function ProductIcon({ category, size = 22 }: { category: Category; size?: number }) {
@@ -45,7 +45,7 @@ export function Button({
   variant?: "primary" | "secondary" | "dark" | "ghost" | "danger";
 }) {
   return (
-    <Squircle asChild cornerRadius={6} cornerSmoothing={1}>
+    <Squircle asChild cornerRadius={12} cornerSmoothing={1}>
       <button {...props} className={`button button-${variant} ${className}`}>
         {children}
       </button>
@@ -64,7 +64,7 @@ export function ActionLink({
   className?: string;
 }) {
   return (
-    <Squircle asChild cornerRadius={6} cornerSmoothing={1}>
+    <Squircle asChild cornerRadius={12} cornerSmoothing={1}>
       <Link href={href} className={`button button-${variant} ${className}`}>
         {children}
       </Link>
@@ -189,7 +189,6 @@ export function Modal({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
@@ -197,11 +196,11 @@ export function Modal({
     if (!open && dialog.open) dialog.close();
   }, [open]);
   return (
-    <dialog ref={ref} className="modal" onCancel={onClose} aria-labelledby={titleId}>
+    <dialog ref={ref} className="modal" onCancel={onClose} aria-labelledby="modal-title">
       <div className="modal-heading">
         <div>
           <p className="eyebrow">PAMOJA · TOGETHER, FOR LESS</p>
-          <h2 id={titleId}>{title}</h2>
+          <h2 id="modal-title">{title}</h2>
         </div>
         <button className="icon-button" aria-label="Close dialog" onClick={onClose}>
           <X size={22} />

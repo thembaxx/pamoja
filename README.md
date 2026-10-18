@@ -45,7 +45,7 @@ Pamoja’s app icon is a sculpted mint community knot: three ribbons meeting aro
 
 Set `NEXT_PUBLIC_SITE_URL` to the actual HTTPS production origin **before building**. The development fallback is `http://localhost:3000`. Canonical URLs, the sitemap, social metadata and LLM documentation all use this value.
 
-Install Pamoja from the profile menu, Settings or the public introduction. Supporting browsers offer a native install prompt; other browsers receive home-screen instructions. The manifest includes safe-zone maskable icons, desktop/phone screenshots, stable app identity and Pools/Pickups shortcuts. Updates wait for “Update & reload” or until all older app windows close, so a new worker does not interrupt a payment or collection task.
+Install Pamoja from the sidebar, Settings or the public introduction. Supporting browsers offer a native install prompt; other browsers receive home-screen instructions. The manifest includes safe-zone maskable icons, desktop/phone screenshots, stable app identity and Pools/Pickups shortcuts. Updates wait for “Update & reload” or until all older app windows close, so a new worker does not interrupt a payment or collection task.
 
 System, Light and Dark appearance settings persist on the device and sync between tabs. The document canvas, member pages, loading/error screens, browser theme color and offline screen share the same background. A theme-specific manifest matches installation colors to the selected appearance. Installed launch-screen metadata can refresh on a browser/OS schedule; an installed splash screen cannot be recolored instantly by page JavaScript. Safe-area padding and dynamic viewport sizing accommodate notches, home indicators and mobile keyboards. Supported devices keep the camera awake while scanning; invite sharing uses the native share sheet with a clipboard fallback.
 
@@ -60,24 +60,20 @@ The production service worker caches a public offline page and static resources.
 | Leader   | `/members`, `/payments`         | Membership search, escrow ledger, rebates, pagination and CSV export              |
 | Leader   | `/orders`, `/pickups`           | Delivery handoff, signed QR verification, item checks and one-time collection     |
 | Supplier | `/supplier`                     | Funded orders, line-item invoices, delivery slots and fee/payout breakdown        |
-| Driver   | `/supplier/delivery/order-1042` | Load checklist, leader QR handoff and payout receipt                              |
+| Driver   | `/supplier/delivery/order-1042` | Load checklist, delivery QR and payout receipt                                    |
 | Member   | `/join/maize`                   | Quantity, consent, price tiers, demo payment slider and a pickup pass             |
 | Member   | `/pass/:membershipId`           | Signed QR, expiry/refresh, download, tier progress and sharing                    |
 | Leader   | `/settings`, `/suppliers`       | Persisted community details and supplier directory                                |
 
-Start at `/join/maize`. Choose a quantity, continue, enter the pickup name, then slide to pay. On `/pools/maize`, open **Status: Open** and choose **Close & lock price**. Review and place the wholesale order. Confirm stock and a slot in the supplier console, check the driver's load, then scan or paste the leader's handoff QR to confirm delivery. In Pickups, scan the member's pass, check every line, and release the goods once.
+Start by joining the maize pool, then follow the pass link back to the workspace. Close the maize pool and place its order. In the supplier console, confirm stock, select a delivery slot, check the load and display the delivery QR. In the leader's order view, confirm drop-off with that QR. The member's pass can now be verified and redeemed in Pickups.
 
-The sample includes a closed rice batch ready to order, a maize pickup list with 104 of 142 collected, and a three-item pickup bundle. In the pickup scanner, verify `pickup-member-109` using its signed pass from `/api/passes/pickup-member-109` to see the pictured Nomsa D. maize-and-oil collection.
-
-The fourteen supplied artboards are preserved in [reference artboards](docs/reference-artboards/README.md). The default leader phone view is **Direction B · Ledger**. Open `/?style=glass` for **Direction A · Glass**; links within this direction preserve the choice. The profile menu and Settings also expose both directions, the supplier console and the member flow. Desktop dashboards retain the ledger layout.
-
-Motion includes page and panel transitions, scroll reveals, rising tier bars, animated price changes, quantity feedback, slider tracking and return, live indicators, and brief payment/pickup celebrations. Reduced-motion preferences disable decorative motion; reduced-transparency preferences make glass cards opaque. Fonts are self-hosted.
+The sample workspace also includes a closed rice pool ready to order and an older maize batch ready for collection.
 
 ## Decisions from the handoff
 
 The original [developer handoff](docs/developer-handoff.md) is preserved. Implementation decisions resolve its open questions:
 
-- **Brand:** Pamoja. Both supplied leader phone directions, ledger desktop dashboards and supplier screens, and glass member screens. The supplied colors, three fonts, treemap, stage strip, striped bars and mint CTAs are used. Squircle.js supplies smooth corners on controls, product tiles and glass cards.
+- **Brand:** Pamoja. Ledger styling for leaders and suppliers; glass styling for members. The supplied colors, three fonts, treemap, stage strip, striped bars and mint CTAs are used. Squircle.js supplies smooth corners on controls, product tiles and glass cards.
 - **Fee:** Suppliers pay 2.5%, rounded once to integer cents. A $1,475.90 invoice yields a $36.90 fee and $1,439.00 payout. Members pay no additional fee. Escrow does not incur a second fee.
 - **Pricing:** Funded memberships unlock tiers; quantities determine order units. Pending payments do not raise member counts. At close, earlier members receive `(price paid − final price) × quantity` as a simulated rebate.
 - **Minimum:** The lowest tier must be funded before closing. A pool below the minimum can remain open or be cancelled for a full simulated refund. Cancellation is available before ordering.
@@ -85,13 +81,13 @@ The original [developer handoff](docs/developer-handoff.md) is preserved. Implem
 - **Market:** USD and the sample mobile-money/card options are retained. Market-specific currency and payment rails need a provider-backed implementation.
 - **Surface:** All three roles use responsive web screens, consistent with the requested Next.js stack. A React Native application is outside this repository.
 
-The uploaded photos now supply the visual references, including their artboard labels. [Design QA](design-qa.md) maps every artboard to an implementation capture. The illustrated order/fee figures conflict across screens; the working review uses the selected pool's actual funded amounts, one supplier fee, and rebates returned at close. The member payment text says funds are held until supplier delivery, consistent with the supplier handoff. QR images encode real signed tokens, so their patterns differ from the illustrative QR drawings.
+The Claude canvas required sign-in during implementation; the two supplied handoffs contain matching text and no embedded images. Exact visual comparison remains blocked. See [design QA](design-qa.md) for the evidence and screenshots.
 
 ## Data, updates and boundaries
 
 Each browser receives an HttpOnly, SameSite demo-session cookie and an isolated, persisted sample workspace. Invite links intentionally share that sample workspace across browsers, including its role previews. They expire after seven days. This is a demonstration access model; it does not provide production authentication or role authorization.
 
-SQLite uses WAL mode, parameterized queries and transactions. Mutations require an idempotency key. Failed mutations roll back. QR tokens use HMAC signatures, bind the workspace and handoff purpose, expire after 30 minutes and are verified on the server. Repeated pickups and delivery confirmations cannot release goods or payouts twice. A bundled pickup verifies all its memberships before releasing any goods, then marks all lines collected in one transaction.
+SQLite uses WAL mode, parameterized queries and transactions. Mutations require an idempotency key. Failed mutations roll back. QR tokens use HMAC signatures, bind the workspace and handoff purpose, expire after 30 minutes and are verified on the server. Repeated pickups and delivery confirmations cannot release goods or payouts twice.
 
 Scans made in an already open collection screen can queue offline in browser storage. Goods remain unreleased until online verification and an explicit item-release action. Camera scanning uses `BarcodeDetector` where supported, with token entry and sample passes as fallbacks. The offline launch fallback is available after a successful first visit to the production app.
 
@@ -111,17 +107,7 @@ src/lib/money.ts            Integer-cent pricing, fees and rebates
 src/lib/store.ts            Transactional SQLite, sessions, invites and QR signatures
 src/app/api/[[...path]]/     Validated REST API
 tests/                      Domain/storage tests and complete browser journeys
-src/components/design.tsx   Shared artboard primitives, direction and motion
-src/app/reference.css       Measured reference layouts and responsive styles
-docs/                       Handoff, source artboards, verification and captures
+docs/                       Original handoff, verification and screenshots
 ```
 
 API details and invariants are in [architecture](docs/architecture.md).
-
-Recreate the fourteen reference captures, dark preview and PWA install screenshots against a running server:
-
-```sh
-node scripts/capture-design.mjs
-```
-
-`PAMOJA_BASE_URL` changes the target server. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` selects a browser; otherwise the script uses `/usr/bin/chromium`. Captures wait for session hydration, use reduced motion for stable stills, and exercise real payment, bundle verification and delivery-load transitions.

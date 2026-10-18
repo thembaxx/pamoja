@@ -5,7 +5,7 @@ import type { Snapshot } from "@/lib/types";
 import { AppProvider } from "./provider";
 import { Dashboard } from "./dashboard";
 import { MemberJoin, MemberPass } from "./member";
-import { Delivery, OrderDetail, OrderReview, Orders, SupplierConsole } from "./orders";
+import { Delivery, OrderDetail, Orders, SupplierConsole } from "./orders";
 import { Pickups } from "./pickups";
 import { InviteDialog, NewPoolDialog } from "./pool-dialogs";
 import { PoolDetail, Pools } from "./pools";
@@ -30,7 +30,6 @@ function Screens({ path }: { path: string[] }) {
   else if (path[0] === "pools") screen = <Pools onNewPool={() => setNewPool(true)} />;
   else if (path[0] === "members") screen = <Members onInvite={() => openInvite()} />;
   else if (path[0] === "payments") screen = <Payments />;
-  else if (path[0] === "orders" && path[1] === "review") screen = <OrderReview />;
   else if (path[0] === "orders" && path[1]) screen = <OrderDetail key={path[1]} id={path[1]} />;
   else if (path[0] === "orders") screen = <Orders />;
   else if (path[0] === "pickups") screen = <Pickups />;

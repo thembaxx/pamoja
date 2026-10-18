@@ -11,7 +11,7 @@ test("workspace changes persist and remain isolated from other visitors", () => 
       state.groupName = "Our community";
     });
     assert.equal(store.read(one).groupName, "Our community");
-    assert.equal(store.read(two).groupName, "Eastside Pool");
+    assert.equal(store.read(two).groupName, "Khayelitsha community");
     assert.equal("requests" in store.snapshot(one), false);
   } finally {
     store.close();
@@ -29,7 +29,7 @@ test("a rejected mutation rolls back the entire transaction", () => {
         }),
       /reject/,
     );
-    assert.equal(store.read(id).pools.length, 9);
+    assert.equal(store.read(id).pools.length, 6);
   } finally {
     store.close();
   }

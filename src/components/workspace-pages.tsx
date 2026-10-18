@@ -14,7 +14,6 @@ import {
 } from "@phosphor-icons/react";
 import { useState, type FormEvent } from "react";
 import { money, shortDate } from "@/lib/money";
-import { communitySummary } from "@/lib/summary";
 import { useApp } from "./provider";
 import { ActionLink, Badge, Button, EmptyState, PageHeading, SectionHeading } from "./ui";
 
@@ -175,25 +174,18 @@ export function Payments() {
   const { data, toast } = useApp();
   const [filter, setFilter] = useState("All activity");
   const [page, setPage] = useState(0);
-  const { escrow: held } = communitySummary(data);
+  const held =
+    data.memberships
+      .filter((member) => member.status === "held")
+      .reduce((sum, member) => sum + member.amount - member.rebate, 0) +
+    data.orders
+      .filter((order) => order.poolId === null && !order.paidAt)
+      .reduce((sum, order) => sum + order.total, 0);
   const rebates = data.memberships.reduce((sum, member) => sum + member.rebate, 0);
   const payouts = data.orders
-    .filter((order) => order.paidAt && !order.external)
+    .filter((order) => order.paidAt)
     .reduce((sum, order) => sum + order.payout, 0);
   const rows = [
-    ...(data.openingEscrow
-      ? [
-          {
-            id: "opening-balance",
-            type: "Opening balance",
-            name: data.groupName,
-            detail: "Imported weekly escrow balance",
-            amount: data.openingEscrow,
-            date: new Date(data.asOf - 7 * 86400000).toISOString(),
-            status: "Funded · held",
-          },
-        ]
-      : []),
     ...data.memberships
       .filter((member) => ["held", "released", "refunded"].includes(member.status))
       .map((member) => ({
@@ -222,7 +214,7 @@ export function Payments() {
         status: "Returned",
       })),
     ...data.orders
-      .filter((order) => order.paidAt && !order.external)
+      .filter((order) => order.paidAt)
       .map((order) => ({
         id: `payout-${order.id}`,
         type: "Payout",
@@ -495,22 +487,6 @@ export function Settings() {
         </section>
         <section className="panel simple-panel settings-facts">
           <ShieldCheck size={30} weight="light" />
-          <h2>Choose your view</h2>
-          <p>Ledger for a compact working view. Glass for a softer, shopper-style view.</p>
-          <div className="ref-menu-links">
-            <ActionLink href="/" variant="secondary">
-              Direction B · Ledger
-            </ActionLink>
-            <ActionLink href="/?style=glass" variant="secondary">
-              Direction A · Glass
-            </ActionLink>
-            <ActionLink href="/supplier" variant="secondary">
-              Supplier console
-            </ActionLink>
-            <ActionLink href="/join/maize" variant="secondary">
-              Member join & pay
-            </ActionLink>
-          </div>
           <h2>Ready to try, together.</h2>
           <dl>
             <div>

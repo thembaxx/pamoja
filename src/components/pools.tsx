@@ -1,31 +1,35 @@
 "use client";
 
-import { ArrowRight, CaretLeft, Plus, UsersThree } from "@phosphor-icons/react";
-import { Squircle } from "@squircle-js/react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  CalendarBlank,
+  Check,
+  Clock,
+  Plus,
+  ShieldCheck,
+  UsersThree,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { currentTier, money, nextTier, poolMembers, priceFor } from "@/lib/money";
-import {
-  GlassCard,
-  PhoneHeader,
-  closeLabel,
-  dayDate,
-  initials,
-  productName,
-  shortName,
-  useDesign,
-} from "./design";
-import { PoolTable } from "./pool-table";
+import { currentTier, money, nextTier, poolMembers, priceFor, shortDate } from "@/lib/money";
+import type { Order } from "@/lib/types";
 import { useApp } from "./provider";
+import { PoolTable } from "./pool-table";
 import {
   ActionLink,
+  Badge,
   Button,
   EmptyState,
   LiveLabel,
   Modal,
   PageHeading,
+  ProductTile,
+  Progress,
   SectionHeading,
+  StageStrip,
 } from "./ui";
 
 export function Pools({ onNewPool }: { onNewPool: () => void }) {
@@ -45,8 +49,9 @@ export function Pools({ onNewPool }: { onNewPool: () => void }) {
   return (
     <>
       <PageHeading
-        title="Your pools"
-        description="Bring demand together. Unlock a better price with every member."
+        eyebrow="BETTER PRICES START HERE"
+        title="Your community pools."
+        description="Bring demand together. Unlock a little more with every member."
       >
         <Button onClick={onNewPool}>
           <Plus size={19} />
@@ -63,6 +68,7 @@ export function Pools({ onNewPool }: { onNewPool: () => void }) {
               aria-pressed={filter === item}
             >
               {item}
+              {item === "All pools" ? <span>{data.pools.length}</span> : null}
             </button>
           ))}
         </div>
@@ -77,25 +83,28 @@ export function Pools({ onNewPool }: { onNewPool: () => void }) {
       </div>
       <section className="panel">
         <SectionHeading title={`${filter} (${pools.length})`}>
-          <LiveLabel>Live</LiveLabel>
+          <LiveLabel />
         </SectionHeading>
         <PoolTable pools={pools} />
       </section>
+      <p className="below-note">
+        <ShieldCheck size={17} />
+        Every supplier order starts with a funded community.
+      </p>
     </>
   );
 }
-
 export function PoolDetail({ id, onInvite }: { id: string; onInvite: (id: string) => void }) {
   const { data, mutate, pending, ready, toast } = useApp();
-  const { glass, href } = useDesign();
-  const [tab, setTab] = useState("Details");
-  const [manage, setManage] = useState(false);
   const [confirm, setConfirm] = useState<"close" | "cancel" | null>(null);
   const router = useRouter();
   const pool = data.pools.find((item) => item.id === id);
   if (!pool)
     return (
-      <EmptyState title="Pool not found" description="Open a pool from your workspace.">
+      <EmptyState
+        title="Pool not found"
+        description="This pool isn't in your workspace. Open the full invite link if a leader shared it with you."
+      >
         <ActionLink href="/pools">View pools</ActionLink>
       </EmptyState>
     );
@@ -106,306 +115,321 @@ export function PoolDetail({ id, onInvite }: { id: string; onInvite: (id: string
   const escrow = members
     .filter((member) => member.status === "held")
     .reduce((sum, member) => sum + member.amount - member.rebate, 0);
+  const quantity = members.reduce((sum, member) => sum + member.quantity, 0);
   const rebates = members.reduce(
-    (sum, member) => sum + Math.max(0, member.unitPrice - current.price) * member.quantity,
+    (sum, member) =>
+      sum +
+      (pool.status === "Open"
+        ? Math.max(0, member.unitPrice - current.price) * member.quantity
+        : member.rebate),
     0,
   );
-  const openPools = data.pools.filter((item) => item.status === "Open").length;
   const order = data.orders.find((item) => item.poolId === id);
-  const review = `/orders/review?poolId=${id}`;
+  const minimum = Math.min(...pool.tiers.map((t) => t.minMembers));
   async function act(action: "close" | "cancel") {
     try {
       await mutate(`pools/${id}/${action}`, {});
       setConfirm(null);
-      setManage(false);
       toast(
         action === "close"
-          ? "Price locked. Every tier rebate is accounted for."
-          : "Pool cancelled. Funded payments refunded.",
+          ? "Final price locked. Your supplier order is ready to review."
+          : "Pool cancelled. All demo payments have been refunded.",
       );
-      if (action === "close") router.push(href(review));
     } catch {
-      /* Keep the review open for a retry. */
+      /* Keep the review dialog open on an error. */
+    }
+  }
+  async function orderNow() {
+    try {
+      const created = await mutate<Order>("orders", { poolId: id });
+      toast("Funded order sent to the supplier.");
+      router.push(`/orders/${created.id}`);
+    } catch {
+      /* The shared toast reports the server error. */
     }
   }
   return (
-    <section className={`ref-pool-detail ref-phone-page ${glass ? "glass-phone" : "ledger-phone"}`}>
-      <PhoneHeader
-        back="/pools"
-        glass={glass}
-        title={glass ? "Pool" : undefined}
-        onTitleClick={glass ? () => setManage(true) : undefined}
-        right={
-          glass ? undefined : (
-            <button
-              className="ref-status-button"
-              onClick={() => setManage(true)}
-              aria-label={`Status: ${pool.status} · Manage pool`}
-            >
-              Status: <span className="ref-green">{pool.status}</span>
-            </button>
-          )
-        }
+    <>
+      <Link href="/pools" className="back-link">
+        <ArrowLeft size={17} />
+        All pools
+      </Link>
+      <PageHeading
+        eyebrow={`${pool.unit.toUpperCase()} · ${pool.supplier.toUpperCase()}`}
+        title={pool.name}
+        description={pool.description}
+      >
+        <Badge status={pool.status} />
+        {pool.status === "Open" ? (
+          <Button variant="secondary" onClick={() => onInvite(id)}>
+            <UsersThree size={18} />
+            Send invite
+          </Button>
+        ) : null}
+      </PageHeading>
+      <StageStrip
+        stages={["Open", "Closed", "Ordered", "Pickup", "Settled"]}
+        current={Math.max(
+          0,
+          ["Open", "Closed", "Ordered", "PickupOpen", "Settled"].indexOf(pool.status),
+        )}
       />
-      <div className="ref-detail-title">
-        <h1>
-          {pool.name}
-          {glass ? "," : ""}
-          <br />
-          {pool.unit}
-        </h1>
-        <p>
-          {glass
-            ? `Closes ${closeLabel(pool.closesAt)} · Pickup ${dayDate(pool.pickupAt, true)}`
-            : `${pool.supplier} · ${openPools} pools this week`}
-        </p>
-      </div>
-      {glass ? (
-        <>
-          <GlassCard className="ref-tier-chart-card">
-            <div className="ref-section-heading">
-              <h2>Price per {pool.category === "oil" ? "unit" : "bag"}</h2>
-              <span>Falls as members join</span>
+      <div className="detail-grid">
+        <div className="detail-main">
+          <section className="panel pool-contract">
+            <div className="contract-price">
+              <ProductTile category={pool.category} large />
+              <div>
+                <p className="eyebrow">CURRENT COMMUNITY PRICE</p>
+                <strong>
+                  {money(priceFor(pool, data.memberships), data.currency)}
+                  <span>/ {pool.unit}</span>
+                </strong>
+                <p>
+                  {count >= minimum
+                    ? "Minimum reached. Your community is buying better."
+                    : `${Math.max(0, minimum - count)} more members needed to reach the minimum.`}
+                </p>
+              </div>
+              <LiveLabel />
             </div>
-            <div className="ref-tier-chart">
+            <dl className="contract-facts">
+              <div>
+                <dt>
+                  <UsersThree size={17} />
+                  Members
+                </dt>
+                <dd>{count} neighbours</dd>
+              </div>
+              <div>
+                <dt>
+                  <Clock size={17} />
+                  Pool closes
+                </dt>
+                <dd>
+                  {shortDate(pool.closesAt)} ·{" "}
+                  {new Date(pool.closesAt).toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    timeZone: "UTC",
+                  })}{" "}
+                  UTC
+                </dd>
+              </div>
+              <div>
+                <dt>
+                  <CalendarBlank size={17} />
+                  Pickup day
+                </dt>
+                <dd>{shortDate(pool.pickupAt)} · Community hall</dd>
+              </div>
+              <div>
+                <dt>
+                  <ShieldCheck size={17} />
+                  Escrow held
+                </dt>
+                <dd>{money(escrow, data.currency)}</dd>
+              </div>
+            </dl>
+          </section>
+          <section className="panel tiers-panel">
+            <SectionHeading
+              title="More together. Less per bag."
+              subtitle="A better price unlocks each time a member milestone is reached."
+            />
+            <div className="tier-cards">
               {pool.tiers.map((tier, index) => (
-                <div key={tier.minMembers} className={count >= tier.minMembers ? "unlocked" : ""}>
-                  <span>{money(tier.price, data.currency)}</span>
-                  <div className="ref-tier-column" style={{ height: `${48 + index * 40}px` }} />
-                  <span>{tier.minMembers}+</span>
-                </div>
+                <article
+                  key={tier.minMembers}
+                  className={
+                    tier.minMembers === current.minMembers && count >= minimum ? "current" : ""
+                  }
+                >
+                  <div className="tier-card-label">
+                    <span>TIER {String(index + 1).padStart(2, "0")}</span>
+                    {count >= tier.minMembers ? <Check size={18} /> : null}
+                  </div>
+                  <h3>
+                    {tier.minMembers}+ <span>members</span>
+                  </h3>
+                  <strong>{money(tier.price, data.currency)}</strong>
+                  <p>
+                    {tier.minMembers === current.minMembers && count >= minimum
+                      ? "Your price now"
+                      : count >= tier.minMembers
+                        ? "Unlocked"
+                        : `${tier.minMembers - count} more to unlock`}
+                  </p>
+                </article>
               ))}
             </div>
-            <p>
-              {count} joined ·{" "}
-              {next
-                ? `${next.minMembers - count} more unlocks ${money(next.price, data.currency)}`
-                : "Best price unlocked"}
-            </p>
-          </GlassCard>
-          <GlassCard className="ref-live-activity">
-            <p>Live activity</p>
-            {data.activity
-              .filter(
-                (activity) =>
-                  activity.kind === "join" &&
-                  (activity.title.includes(pool.name) || activity.description.includes(pool.name)),
-              )
-              .slice(0, 2)
-              .map((activity, index) => (
-                <div key={activity.id}>
-                  <span className="ref-avatar">
-                    {initials(activity.title.split(" ").slice(0, 2).join(" "))}
-                  </span>
-                  <span>{activity.title}</span>
-                  <small>{index === 0 ? "now" : "1m"}</small>
-                </div>
-              ))}
-          </GlassCard>
-        </>
-      ) : (
-        <>
-          <div className="ref-tabs" role="tablist" aria-label="Pool details">
-            {["Details", "Members", "Payments"].map((item) => (
-              <button
-                role="tab"
-                key={item}
-                aria-selected={tab === item}
-                className={tab === item ? "selected" : ""}
-                onClick={() => setTab(item)}
-                tabIndex={tab === item ? 0 : -1}
-                id={`pool-tab-${item.toLowerCase()}`}
-                aria-controls="pool-tab-panel"
-                onKeyDown={(event) => {
-                  const tabs = ["Details", "Members", "Payments"];
-                  const index = tabs.indexOf(tab);
-                  const next =
-                    event.key === "ArrowRight"
-                      ? (index + 1) % 3
-                      : event.key === "ArrowLeft"
-                        ? (index + 2) % 3
-                        : event.key === "Home"
-                          ? 0
-                          : event.key === "End"
-                            ? 2
-                            : -1;
-                  if (next < 0) return;
-                  event.preventDefault();
-                  setTab(tabs[next]);
-                  document.getElementById(`pool-tab-${tabs[next].toLowerCase()}`)?.focus();
-                }}
+            <div className="tier-target">
+              <div>
+                <strong>
+                  {count} of {next?.minMembers || count} members
+                </strong>
+                <span>
+                  {next
+                    ? `${next.minMembers - count} more for ${money(next.price, data.currency)}`
+                    : "Your community unlocked the best price"}
+                </span>
+              </div>
+              <Progress
+                value={count}
+                max={next?.minMembers || count || 1}
+                label="Progress to the next pool tier"
+              />
+            </div>
+            <div className="info-note">
+              <ShieldCheck size={23} />
+              <p>
+                <strong>Join now. Save again later.</strong>If more people join and the price falls,
+                earlier members get the difference back from escrow when the pool closes.
+              </p>
+            </div>
+          </section>
+          <section className="panel">
+            <SectionHeading title="Buying together">
+              <span className="count-label">{count} funded members</span>
+            </SectionHeading>
+            <div className="table-scroll">
+              <table>
+                <caption className="sr-only">Latest funded members of this pool</caption>
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Quantity</th>
+                    <th>Paid</th>
+                    <th>Escrow</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {members
+                    .slice(-7)
+                    .reverse()
+                    .map((member) => (
+                      <tr key={member.id}>
+                        <td>
+                          <span className="member-name">
+                            <span className="avatar-small">{member.name.slice(0, 1)}</span>
+                            {member.name}
+                          </span>
+                        </td>
+                        <td>
+                          {member.quantity} × {pool.unit}
+                        </td>
+                        <td>{money(member.amount, data.currency)}</td>
+                        <td>
+                          <Badge
+                            status={
+                              member.status === "held"
+                                ? "Funded · held"
+                                : member.redeemedAt
+                                  ? "Collected"
+                                  : "PickupOpen"
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {!members.length ? (
+              <EmptyState
+                title="The first neighbour makes the difference"
+                description="Share an invite to get this pool moving."
+              />
+            ) : null}
+          </section>
+        </div>
+        <aside className="detail-rail">
+          <section className="dark-summary">
+            <p className="eyebrow">COMMUNITY ESCROW</p>
+            <ShieldCheck size={28} weight="light" />
+            <div className="dark-amount">{money(escrow, data.currency)}</div>
+            <p>Held for this pool. Every cent accounted for.</p>
+            <dl>
+              <div>
+                <dt>Funded quantity</dt>
+                <dd>{quantity} units</dd>
+              </div>
+              <div>
+                <dt>Invoice at current price</dt>
+                <dd>{money(quantity * current.price, data.currency)}</dd>
+              </div>
+              <div>
+                <dt>Tier {pool.status === "Open" ? "rebate preview" : "rebates"}</dt>
+                <dd>{money(rebates, data.currency)}</dd>
+              </div>
+              <div>
+                <dt>Member fee</dt>
+                <dd>{money(0, data.currency)}</dd>
+              </div>
+            </dl>
+            {pool.status === "Open" ? (
+              <Button
+                onClick={() => setConfirm("close")}
+                disabled={pending || !ready || count < minimum}
               >
-                {item}
-              </button>
-            ))}
-          </div>
-          <div
-            className="ref-tab-panel"
-            id="pool-tab-panel"
-            role="tabpanel"
-            aria-labelledby={`pool-tab-${tab.toLowerCase()}`}
-            key={tab}
-          >
-            {tab === "Details" ? (
+                Close & lock price
+                <ArrowRight size={18} />
+              </Button>
+            ) : pool.status === "Closed" ? (
+              <Button onClick={() => void orderNow()} disabled={pending || !ready}>
+                {pending ? "Placing order…" : "Place supplier order"}
+                <ArrowRight size={18} />
+              </Button>
+            ) : order ? (
+              <ActionLink href={`/orders/${order.id}`}>
+                View supplier order
+                <ArrowRight size={18} />
+              </ActionLink>
+            ) : (
+              <ActionLink href="/pickups">
+                Go to pickups
+                <ArrowRight size={18} />
+              </ActionLink>
+            )}
+            <small>
+              Supplier pays the 2.5% service fee from their payout. Members pay no added fee.
+            </small>
+          </section>
+          <section className="panel simple-panel">
+            <h2>Pass it around.</h2>
+            <p>One more neighbour could be the one who brings everyone a better price.</p>
+            {pool.status === "Open" ? (
               <>
-                <dl className="ref-contract">
-                  <div>
-                    <dt>Price now</dt>
-                    <dd>
-                      {money(priceFor(pool, data.memberships), data.currency)}{" "}
-                      <small>/ {pool.category === "oil" ? "unit" : "bag"}</small>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Members</dt>
-                    <dd>
-                      {count} <small>/ {next?.minMembers || count}</small>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Closes</dt>
-                    <dd>{closeLabel(pool.closesAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>Held in escrow</dt>
-                    <dd>{money(escrow, data.currency)}</dd>
-                  </div>
-                </dl>
-                <p className="ref-label ref-tiers-label">Price tiers</p>
-                <div className="ref-tier-boxes">
-                  {pool.tiers.map((tier) => (
-                    <Squircle
-                      cornerRadius={5}
-                      cornerSmoothing={1}
-                      key={tier.minMembers}
-                      className={tier.minMembers === current.minMembers ? "selected" : ""}
-                    >
-                      <span>{tier.minMembers}+ members</span>
-                      <strong>{money(tier.price, data.currency)}</strong>
-                    </Squircle>
-                  ))}
-                </div>
+                <Button variant="secondary" onClick={() => onInvite(id)}>
+                  <UsersThree size={18} />
+                  Invite your group
+                </Button>
+                <ActionLink href={`/join/${id}`} variant="ghost">
+                  Preview member flow
+                  <ArrowUpRight size={16} />
+                </ActionLink>
               </>
             ) : (
-              <div className="ref-contract-members">
-                {members.slice(0, 20).map((member) => (
-                  <div key={member.id}>
-                    <span className="ref-avatar">{initials(member.name)}</span>
-                    <span>
-                      {shortName(member.name)}
-                      <small>
-                        {member.quantity} × {pool.unit}
-                      </small>
-                    </span>
-                    <strong>
-                      {tab === "Members" ? "Joined" : money(member.amount, data.currency)}
-                    </strong>
-                  </div>
-                ))}
-                {members.length > 20 ? (
-                  <Link href="/members">
-                    View all {members.length} members <ArrowRight size={16} />
-                  </Link>
-                ) : null}
-              </div>
+              <ActionLink href="/members" variant="secondary">
+                View pool members
+              </ActionLink>
             )}
-          </div>
-        </>
-      )}
-      <div className="ref-detail-cta ref-phone-footer">
-        {glass ? (
-          <>
-            <button
-              className="ref-round-back"
-              aria-label="Back to pools"
-              onClick={() => router.push(href("/pools"))}
-            >
-              <CaretLeft size={23} />
-            </button>
-            <Button
-              onClick={() =>
-                pool.status === "Open"
-                  ? setConfirm("close")
-                  : router.push(href(order ? `/orders/${order.id}` : review))
-              }
-              disabled={
-                !ready || pending || (pool.status === "Open" && count < pool.tiers[0].minMembers)
-              }
-            >
-              {pool.status === "Open" ? "Close pool & order" : "Review wholesale order"}
-            </Button>
-          </>
-        ) : pool.status === "Open" ? (
-          <Button onClick={() => onInvite(id)}>
-            {next
-              ? `Invite ${next.minMembers - count} more to unlock ${money(next.price, data.currency)}`
-              : "Invite your group"}
-            <ArrowRight size={20} />
-          </Button>
-        ) : (
-          <ActionLink href={href(order ? `/orders/${order.id}` : review)}>
-            Review wholesale order
-            <ArrowRight size={20} />
-          </ActionLink>
-        )}
-      </div>
-      <Modal
-        open={manage}
-        onClose={() => setManage(false)}
-        title={productName(pool)}
-        description="Manage this pool, or preview the member experience."
-      >
-        <div className="ref-menu-links">
-          <button
-            onClick={() => {
-              setManage(false);
-              onInvite(id);
-            }}
-          >
-            Invite members
-            <UsersThree size={18} />
-          </button>
-          <Link href={`/join/${id}`}>
-            Preview member flow
-            <ArrowRight size={18} />
-          </Link>
-          {pool.status === "Open" ? (
-            <button
-              disabled={count < pool.tiers[0].minMembers}
-              onClick={() => {
-                setManage(false);
-                setConfirm("close");
-              }}
-            >
-              Close & lock price
-              <ArrowRight size={18} />
-            </button>
-          ) : (
-            <Link href={href(order ? `/orders/${order.id}` : review)}>
-              Review supplier order
-              <ArrowRight size={18} />
-            </Link>
-          )}
+          </section>
           {["Open", "Closed"].includes(pool.status) ? (
-            <button
-              onClick={() => {
-                setManage(false);
-                setConfirm("cancel");
-              }}
-            >
+            <button className="cancel-pool" onClick={() => setConfirm("cancel")}>
               Cancel pool & refund members
             </button>
           ) : null}
-        </div>
-      </Modal>
+        </aside>
+      </div>
       <Modal
         open={!!confirm}
         onClose={() => setConfirm(null)}
         title={confirm === "cancel" ? "Cancel this pool?" : "Lock in a better price."}
         description={
           confirm === "cancel"
-            ? "Every funded payment will be fully refunded in this demo. Unpaid joins will be cancelled."
-            : `Final price: ${money(current.price, data.currency)} per ${pool.unit}. Tier rebates: ${money(rebates, data.currency)}. No more members can join after closing.`
+            ? "Every funded payment will be fully refunded in this demo. Unpaid joins will be cancelled, and the pool will stop accepting members."
+            : `The final price will be ${money(current.price, data.currency)} per ${pool.unit}, with ${money(rebates, data.currency)} in tier rebates. No more members can join after this.`
         }
       >
         <div className="modal-footer">
@@ -421,6 +445,6 @@ export function PoolDetail({ id, onInvite }: { id: string; onInvite: (id: string
           </Button>
         </div>
       </Modal>
-    </section>
+    </>
   );
 }

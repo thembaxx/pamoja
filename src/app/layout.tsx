@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Analytics } from "@vercel/analytics/next";
 import { PwaProvider } from "@/components/pwa-provider";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 import { themeBootstrap, themeColors } from "@/lib/theme";
@@ -8,7 +7,6 @@ import "@fontsource-variable/hanken-grotesk";
 import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
 import "./globals.css";
-import "./reference.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -75,7 +73,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <a href="/about">Learn about Pamoja</a>.
           </p>
         </noscript>
-        <Analytics />
       </body>
     </html>
   );

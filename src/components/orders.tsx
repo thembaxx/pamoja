@@ -1,304 +1,206 @@
 "use client";
 
-import { ArrowRight, Check, CheckSquare, Copy, QrCode, Square, Truck } from "@phosphor-icons/react";
-import { Squircle } from "@squircle-js/react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  CheckCircle,
+  Copy,
+  Package,
+  QrCode,
+  ShieldCheck,
+  Truck,
+} from "@phosphor-icons/react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { money, poolMembers, priceFor, supplierSettlement } from "@/lib/money";
+import { money, shortDate } from "@/lib/money";
 import type { Order } from "@/lib/types";
-import {
-  Celebrate,
-  DisplayMoney,
-  GlassCard,
-  OrderStages,
-  PhoneHeader,
-  SlideConfirm,
-  SwapArrow,
-  dayDate,
-  productName,
-  useDesign,
-} from "./design";
-import { CameraScanner } from "./pickups";
 import { api, useApp } from "./provider";
-import { BoardTopbar } from "./shell";
-import { ActionLink, Badge, Button, EmptyState, Modal, PageHeading, SectionHeading } from "./ui";
+import {
+  ActionLink,
+  Badge,
+  Button,
+  EmptyState,
+  Modal,
+  PageHeading,
+  SectionHeading,
+  StageStrip,
+} from "./ui";
 
 export function OrderLines({ order }: { order: Order }) {
   const { data } = useApp();
   return (
-    <div className="ref-invoice-lines">
-      {order.lines.map((line, index) => (
-        <div key={index}>
-          <span>
-            <strong>{productName(line)}</strong>
-            <small>
-              {line.quantity} × {money(line.unitPrice, data.currency)}
-            </small>
-          </span>
-          <span>{money(line.quantity * line.unitPrice, data.currency)}</span>
-        </div>
-      ))}
+    <div className="table-scroll">
+      <table className="order-lines">
+        <caption className="sr-only">Line items for {order.reference}</caption>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Tier price</th>
+            <th>Line total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.lines.map((line, index) => (
+            <tr key={index}>
+              <td>
+                <strong>{line.name}</strong>
+                <small>{line.unit}</small>
+              </td>
+              <td>{line.quantity}</td>
+              <td>{money(line.unitPrice, data.currency)}</td>
+              <td>
+                <strong>{money(line.quantity * line.unitPrice, data.currency)}</strong>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={3}>Funded invoice total</td>
+            <td>{money(order.total, data.currency)}</td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }
 export function PayoutSummary({ order }: { order: Order }) {
   const { data } = useApp();
   return (
-    <Squircle cornerRadius={7} cornerSmoothing={1} className="ref-payout" data-reveal>
-      <div>
-        <span>{order.paidAt ? "Supplier paid" : "Held in escrow"}</span>
-        <span>Fee 2.5% · {money(order.fee, data.currency)}</span>
+    <section className="dark-summary payout-summary">
+      <div className="payout-heading">
+        <p className="eyebrow">{order.paidAt ? "SUPPLIER PAID" : "PROTECTED IN ESCROW"}</p>
+        <ShieldCheck size={24} />
       </div>
+      <div className="dark-amount">{money(order.payout, data.currency)}</div>
       <p>
-        <strong>{money(order.payout, data.currency)}</strong>
-        <span>your payout</span>
-      </p>
-      <small>
         {order.paidAt
-          ? "Released after confirmed drop-off"
-          : "Released when the leader confirms drop-off"}
-      </small>
-    </Squircle>
+          ? "Drop-off confirmed. Payout released."
+          : "Your payout, when the leader confirms drop-off."}
+      </p>
+      <dl>
+        <div>
+          <dt>Funded order</dt>
+          <dd>{money(order.total, data.currency)}</dd>
+        </div>
+        <div>
+          <dt>Service fee · 2.5%</dt>
+          <dd>− {money(order.fee, data.currency)}</dd>
+        </div>
+        <div className="total-row">
+          <dt>Supplier payout</dt>
+          <dd>{money(order.payout, data.currency)}</dd>
+        </div>
+      </dl>
+      <div className="payout-note">
+        <ShieldCheck size={18} />
+        <span>Only funded orders reach suppliers. No chasing payments.</span>
+      </div>
+    </section>
   );
 }
 export function Orders() {
   const { data } = useApp();
-  const { href } = useDesign();
   const readyPools = data.pools.filter((pool) => pool.status === "Closed");
   return (
     <>
-      <div className="desktop-only">
-        <PageHeading
-          title="Wholesale orders"
-          description="Funded orders, from your community to your supplier."
-        >
-          <ActionLink href="/supplier" variant="secondary">
-            Supplier console
+      <PageHeading
+        eyebrow="FROM YOUR COMMUNITY TO YOUR SUPPLIER"
+        title="Every order, accounted for."
+        description="Fully funded orders. Clear delivery dates. A little less to worry about."
+      >
+        <ActionLink href="/supplier" variant="secondary">
+          Supplier console
+          <ArrowUpRight size={17} />
+        </ActionLink>
+      </PageHeading>
+      {readyPools.length ? (
+        <div className="ready-order-banner">
+          <Package size={26} />
+          <div>
+            <strong>
+              {readyPools.length} pool{readyPools.length === 1 ? " is" : "s are"} ready to order
+            </strong>
+            <p>Your members have paid. Review the final price and send it to the supplier.</p>
+          </div>
+          <ActionLink href={`/pools/${readyPools[0].id}`}>
+            Review pool
             <ArrowRight size={17} />
           </ActionLink>
-        </PageHeading>
-        {readyPools.length ? (
-          <div className="ready-order-banner">
-            <div>
-              <strong>
-                {readyPools.length} pool{readyPools.length > 1 ? "s" : ""} ready to order
-              </strong>
-              <p>Review the locked price and send your funded order.</p>
-            </div>
-            <ActionLink href={href(`/orders/review?poolId=${readyPools[0].id}`)}>
-              Review order
-              <ArrowRight size={17} />
-            </ActionLink>
-          </div>
-        ) : null}
-        <section className="panel">
-          <SectionHeading title="Supplier orders" />
+        </div>
+      ) : null}
+      <section className="panel">
+        <SectionHeading title="Supplier orders">
+          <span className="count-label">{data.orders.length} orders</span>
+        </SectionHeading>
+        {data.orders.length ? (
           <div className="table-scroll">
             <table>
-              <caption className="sr-only">Funded supplier orders for your community</caption>
+              <caption className="sr-only">Funded supplier orders</caption>
               <thead>
                 <tr>
                   <th>Order</th>
-                  <th>Pool</th>
+                  <th>Supplier</th>
                   <th>Invoice</th>
                   <th>Deliver by</th>
                   <th>Status</th>
+                  <th>
+                    <span className="sr-only">View</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {data.orders
-                  .filter((order) => !order.external)
-                  .map((order) => (
-                    <tr key={order.id}>
-                      <td>
-                        <Link href={href(`/orders/${order.id}`)} className="table-title">
-                          {order.reference}
-                        </Link>
-                      </td>
-                      <td>{order.name}</td>
-                      <td>{money(order.total, data.currency)}</td>
-                      <td>{dayDate(order.deliverBy, true)}</td>
-                      <td>
-                        <Badge status={order.status} />
-                      </td>
-                    </tr>
-                  ))}
+                {data.orders.map((order) => (
+                  <tr key={order.id}>
+                    <td>
+                      <Link href={`/orders/${order.id}`} className="table-title">
+                        {order.reference}
+                        <small>{order.name}</small>
+                      </Link>
+                    </td>
+                    <td>{order.supplier}</td>
+                    <td>
+                      <strong>{money(order.total, data.currency)}</strong>
+                    </td>
+                    <td>{shortDate(order.deliverBy)}</td>
+                    <td>
+                      <Badge status={order.status} />
+                    </td>
+                    <td>
+                      <Link
+                        href={`/orders/${order.id}`}
+                        aria-label={`View ${order.reference}`}
+                        className="row-arrow"
+                      >
+                        <ArrowRight size={19} />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </section>
-      </div>
-      <div className="mobile-only">
-        <OrderReview />
-      </div>
-    </>
-  );
-}
-export function OrderReview() {
-  const { data, ready, pending, mutate, toast } = useApp();
-  const { glass, href } = useDesign();
-  const params = useSearchParams();
-  const router = useRouter();
-  const pool =
-    data.pools.find((item) => item.id === params.get("poolId")) ||
-    data.pools.find((item) => item.status === "Closed");
-  if (!pool)
-    return (
-      <div className="ref-phone-page">
-        <PhoneHeader back="/" glass={glass} title={glass ? "Order" : undefined} />
-        <EmptyState
-          title="Your orders are on their way"
-          description="Close a funded pool to review a new wholesale order."
-        >
-          <ActionLink href={href("/pools")}>View pools</ActionLink>
-        </EmptyState>
-        <ActionLink href="/supplier" variant="secondary">
-          View supplier orders
-        </ActionLink>
-      </div>
-    );
-  const members = poolMembers(pool.id, data.memberships);
-  const quantity = members.reduce((sum, member) => sum + member.quantity, 0);
-  const invoice = quantity * priceFor(pool, data.memberships);
-  const held = members.reduce((sum, member) => sum + member.amount, 0);
-  const rebate = held - invoice;
-  const fee = supplierSettlement(invoice).fee;
-  async function place() {
-    try {
-      const order = await mutate<Order>("orders", { poolId: pool!.id });
-      toast("Wholesale order placed. Your supplier has been notified.");
-      router.push(href(`/orders/${order.id}`));
-    } catch {
-      /* Preserve the review for retry. */
-    }
-  }
-  const facts = (
-    <dl>
-      <div>
-        <dt>Service fee · included</dt>
-        <dd>{money(fee, data.currency)}</dd>
-      </div>
-      <div>
-        <dt>Tier rebate to members</dt>
-        <dd className="ref-green">{money(rebate, data.currency)}</dd>
-      </div>
-    </dl>
-  );
-  return (
-    <section
-      className={`ref-order-review ref-phone-page ${glass ? "glass-phone" : "ledger-phone"}`}
-    >
-      <PhoneHeader
-        back={`/pools/${pool.id}`}
-        title={glass ? "Order" : undefined}
-        glass={glass}
-        right={glass ? undefined : <span className="ref-muted">1 pool</span>}
-      />
-      <h1>
-        {glass ? (
-          <>
-            Place wholesale
-            <br />
-            order
-          </>
         ) : (
-          <>
-            Wholesale
-            <br />
-            order
-          </>
-        )}
-      </h1>
-      {glass ? (
-        <>
-          <div className="ref-order-swap">
-            <GlassCard>
-              <div>
-                <span>Held in escrow</span>
-                <span>1 pool</span>
-              </div>
-              <DisplayMoney amount={held} currency={data.currency} serif />
-            </GlassCard>
-            <SwapArrow />
-            <GlassCard>
-              <div>
-                <span>Wholesale supplier invoice</span>
-                <span>{quantity} items</span>
-              </div>
-              <DisplayMoney amount={invoice} currency={data.currency} serif />
-            </GlassCard>
-          </div>
-          <GlassCard className="ref-order-fees">{facts}</GlassCard>
-        </>
-      ) : (
-        <>
-          <Squircle cornerRadius={7} className="ref-held-panel">
-            <p>Held in escrow</p>
-            <DisplayMoney amount={held} currency={data.currency} />
-          </Squircle>
-          <div className="ref-section-heading ref-breakdown-heading">
-            <span>Breakdown</span>
-            <span>3 items</span>
-          </div>
-          <dl className="ref-order-breakdown">
-            <div>
-              <dt>
-                Supplier invoice
-                <small>
-                  {quantity} items · {pool.supplier.toLowerCase()}
-                </small>
-              </dt>
-              <dd>{money(invoice, data.currency)}</dd>
-            </div>
-            <div>
-              <dt>
-                Service fee<small>Included in invoice · 2.5%</small>
-              </dt>
-              <dd>{money(fee, data.currency)}</dd>
-            </div>
-            <div>
-              <dt>
-                Tier rebate to members<small>Returned at pool close</small>
-              </dt>
-              <dd>{money(rebate, data.currency)}</dd>
-            </div>
-          </dl>
-          <p className="ref-label">What happens next</p>
-        </>
-      )}
-      <OrderStages />
-      <div className="ref-phone-footer">
-        {glass ? (
-          <SlideConfirm
-            label="Slide to place order"
-            onConfirm={place}
-            pending={pending}
-            disabled={!ready || pool.status !== "Closed"}
+          <EmptyState
+            title="The next good thing is on its way"
+            description="Close a funded pool to place your first wholesale order."
           />
-        ) : (
-          <Button
-            onClick={() => void place()}
-            disabled={!ready || pending || pool.status !== "Closed"}
-          >
-            {pending ? "Placing order…" : "Place wholesale order"}
-            <ArrowRight size={21} />
-          </Button>
         )}
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
 export function OrderDetail({ id }: { id: string }) {
   const { data, mutate, pending, toast, ready } = useApp();
   const [handoff, setHandoff] = useState(false);
   const [token, setToken] = useState("");
-  const [qr, setQr] = useState("");
   const order = data.orders.find((item) => item.id === id);
   if (!order)
     return (
-      <EmptyState title="Order not found" description="Choose an order from your workspace.">
+      <EmptyState title="Order not found" description="This order isn't in your demo workspace.">
         <ActionLink href="/orders">View orders</ActionLink>
       </EmptyState>
     );
@@ -306,531 +208,427 @@ export function OrderDetail({ id }: { id: string }) {
     try {
       const pass = await api<{ token: string }>(`orders/${id}/pass`);
       setToken(pass.token);
-      setQr(pass.token);
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Couldn't load the handoff QR.", true);
+      toast(error instanceof Error ? error.message : "Couldn't load the pass.", true);
     }
   }
   async function deliver() {
     try {
       await mutate(`orders/${id}/deliver`, { token });
       setHandoff(false);
-      toast("Drop-off confirmed. Supplier payout released.");
+      toast("Drop-off confirmed. The supplier payout has been released.");
     } catch {
-      /* Allow correction. */
+      /* Keep the handoff open so the leader can correct the code. */
     }
   }
   return (
-    <div className="ref-order-detail">
-      <PhoneHeader back="/orders" right={<Badge status={order.status} />} />
+    <>
+      <Link href="/orders" className="back-link">
+        <ArrowLeft size={17} />
+        All orders
+      </Link>
       <PageHeading
+        eyebrow={`${order.reference} · ${order.supplier.toUpperCase()}`}
         title={order.name}
-        description={`${order.reference} · Deliver by ${dayDate(order.deliverBy, true)}`}
+        description={`A community order, delivering by ${shortDate(order.deliverBy)}.`}
       >
+        <Badge status={order.status} />
         <ActionLink href="/supplier" variant="secondary">
           Open supplier view
-          <ArrowRight size={17} />
+          <ArrowUpRight size={17} />
         </ActionLink>
       </PageHeading>
-      <div className="ref-detail-columns">
-        <div>
+      <StageStrip
+        stages={["Funded", "Confirmed", "Loaded", "Delivered & paid"]}
+        current={["Placed", "Confirmed", "Loaded", "Delivered"].indexOf(order.status)}
+      />
+      <div className="detail-grid">
+        <div className="detail-main">
           <section className="panel">
-            <SectionHeading title="Wholesale order" />
+            <SectionHeading title="Your wholesale order">
+              <span className="count-label">{order.lines.length} lines</span>
+            </SectionHeading>
             <OrderLines order={order} />
           </section>
           <section className="panel simple-panel">
-            <h2>Delivery handoff</h2>
+            <h2>One handoff. Everything in place.</h2>
             <p>
-              Check the goods at drop-off. The driver scans the leader’s signed handoff QR to
-              release the supplier payout.
+              Check the delivered items, then scan the supplier delivery QR to confirm drop-off.
+              This releases the supplier payout once.
             </p>
-            <p>{order.slot || "Waiting for stock and slot confirmation"}</p>
+            <dl className="contract-facts">
+              <div>
+                <dt>Delivery slot</dt>
+                <dd>{order.slot || "Waiting for supplier confirmation"}</dd>
+              </div>
+              <div>
+                <dt>Collection point</dt>
+                <dd>Khayelitsha Community Hall</dd>
+              </div>
+              <div>
+                <dt>Escrow status</dt>
+                <dd>
+                  {order.paidAt ? "Released after confirmed drop-off" : "Fully funded · held"}
+                </dd>
+              </div>
+            </dl>
             {order.status === "Loaded" ? (
-              <>
-                <Button
-                  onClick={() => {
-                    setHandoff(true);
-                    void sample();
-                  }}
-                >
-                  Show leader handoff QR
-                  <QrCode size={19} />
-                </Button>
-                {qr ? (
-                  <div className="ref-order-handoff-qr">
-                    <QRCodeSVG value={qr} size={170} marginSize={2} />
-                  </div>
-                ) : null}
-              </>
+              <Button onClick={() => setHandoff(true)}>
+                <QrCode size={19} />
+                Confirm drop-off
+              </Button>
             ) : order.status === "Delivered" ? (
               <div className="success-note">
-                <Check size={21} />
-                Drop-off confirmed. Members can collect.
-                <Celebrate />
+                <CheckCircle size={22} weight="fill" />
+                Drop-off confirmed. Members can collect their goods.
               </div>
             ) : (
-              <ActionLink href={`/supplier/delivery/${id}`} variant="secondary">
+              <ActionLink href={`/supplier/delivery/${order.id}`} variant="secondary">
                 Open delivery view
-                <Truck size={19} />
+                <Truck size={18} />
               </ActionLink>
             )}
           </section>
         </div>
-        <PayoutSummary order={order} />
+        <aside className="detail-rail">
+          <PayoutSummary order={order} />
+          <section className="panel simple-panel">
+            <h2>Every cent has a place.</h2>
+            <p>
+              The service fee comes out of the supplier payout. Your members pay no added fee, and
+              tier rebates are returned separately at pool close.
+            </p>
+            <ActionLink href="/payments" variant="ghost">
+              Open escrow ledger
+              <ArrowRight size={17} />
+            </ActionLink>
+          </section>
+        </aside>
       </div>
       <Modal
         open={handoff}
         onClose={() => setHandoff(false)}
-        title="Confirm the supplier drop-off"
-        description="The supplier is paid once, after the delivered goods have been checked."
+        title="Confirm the supplier drop-off."
+        description="Check the delivered goods, then enter the supplier's signed QR code. The payout will be released immediately in this demo."
       >
         <div className="form-stack">
-          {qr ? (
-            <div className="ref-order-handoff-qr">
-              <QRCodeSVG value={qr} size={190} marginSize={2} title="Leader delivery handoff QR" />
-            </div>
-          ) : null}
-          <Button
-            variant="secondary"
-            onClick={() =>
-              void navigator.clipboard
-                .writeText(qr)
-                .then(() => toast("Leader handoff token copied."))
-                .catch(() => toast("Copy unavailable.", true))
-            }
-            disabled={!qr}
-          >
-            <Copy size={17} />
-            Copy leader handoff token
-          </Button>
           <label>
-            Delivery QR code
+            Supplier delivery QR code
             <textarea
               value={token}
               onChange={(event) => setToken(event.target.value.trim())}
+              placeholder="Paste the delivery QR token"
               rows={3}
-              placeholder="Paste the signed delivery token"
             />
           </label>
-          <Button variant="secondary" onClick={() => void sample()}>
+          <Button variant="secondary" onClick={() => void sample()} disabled={pending}>
             Use this order’s demo QR
           </Button>
-          <Button onClick={() => void deliver()} disabled={!token || pending || !ready}>
-            {pending ? "Confirming…" : "Confirm drop-off & release"}
-            <ArrowRight size={18} />
-          </Button>
+          <p className="field-note">
+            <ShieldCheck size={17} />
+            Confirm only after all ordered goods have arrived.
+          </p>
+          <div className="modal-footer">
+            <Button variant="secondary" onClick={() => setHandoff(false)}>
+              Not yet
+            </Button>
+            <Button onClick={() => void deliver()} disabled={!token || pending || !ready}>
+              {pending ? "Confirming…" : "Confirm drop-off & release"}
+              <ArrowRight size={17} />
+            </Button>
+          </div>
         </div>
       </Modal>
-    </div>
+    </>
   );
 }
-
 export function SupplierConsole() {
   const { data, mutate, pending, ready, toast } = useApp();
-  const params = useSearchParams();
-  const tab = params.get("tab") || "orders";
   const [selected, setSelected] = useState("");
-  const [slot, setSlot] = useState(1);
+  const [slot, setSlot] = useState("09:00–11:00 · Community hall");
   const order = data.orders.find((item) => item.id === selected) || data.orders[0];
-  const incoming = data.orders.filter((item) => ["Placed", "Confirmed"].includes(item.status));
-  const rows =
-    tab === "deliveries"
-      ? data.orders.filter((item) => ["Loaded", "Delivered"].includes(item.status))
-      : tab === "payouts"
-        ? data.orders
-        : incoming;
   const confirm = async () => {
     if (!order) return;
-    const day = new Date(order.deliverBy);
-    day.setUTCDate(day.getUTCDate() + slot - 1);
     try {
-      await mutate(`orders/${order.id}/confirm`, {
-        slot: `${dayDate(day.toISOString(), true)} · 09:00–11:00 · Community hall`,
-      });
-      toast("Stock & delivery slot confirmed.");
+      await mutate(`orders/${order.id}/confirm`, { slot });
+      toast("Stock and delivery slot confirmed. Your leader has been updated.");
     } catch {
-      /* Retain the selected order. */
+      /* The shared notification reports the error. */
     }
   };
   return (
-    <div className="ref-supplier-console">
-      <section className="ref-supplier-main">
-        <BoardTopbar
-          title={tab === "orders" ? "Orders" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-          supplier
-        />
-        <h1>
-          {{
-            orders: "Incoming pooled orders",
-            deliveries: "Your deliveries",
-            payouts: "Supplier payouts",
-            catalogue: "Product catalogue",
-            leaders: "Community leaders",
-          }[tab] || "Incoming pooled orders"}
-        </h1>
-        {tab === "catalogue" ? (
-          <div className="ref-catalogue">
-            {data.pools.slice(0, 4).map((pool) => (
-              <Squircle cornerRadius={7} className="panel simple-panel" key={pool.id}>
-                <h2>{productName(pool)}</h2>
-                <p>{pool.supplier}</p>
-                <strong>{money(priceFor(pool, data.memberships), data.currency)}</strong>
-                <p>Tier prices from {pool.tiers[0].minMembers} members</p>
-                <ActionLink href={`/pools/${pool.id}`} variant="secondary">
-                  View pool
-                  <ArrowRight size={16} />
-                </ActionLink>
-              </Squircle>
-            ))}
-          </div>
-        ) : tab === "leaders" ? (
-          <section className="panel simple-panel">
-            <h2>{data.groupName}</h2>
-            <p>{data.leaderName} · Community leader</p>
-            <ActionLink href="/">
-              Open community dashboard
-              <ArrowRight size={17} />
-            </ActionLink>
-          </section>
-        ) : (
-          <>
-            <div className="ref-supplier-stats">
-              {[
-                ["To confirm", data.orders.filter((item) => item.status === "Placed").length],
-                ["Out for delivery", data.orders.filter((item) => item.status === "Loaded").length],
-                [
-                  "Payout pending",
-                  money(
-                    data.orders
-                      .filter((item) => !item.paidAt)
-                      .reduce((sum, item) => sum + item.payout, 0),
-                    data.currency,
-                  ),
-                ],
-              ].map(([label, value], index) => (
-                <Squircle cornerRadius={5} className={index === 0 ? "selected" : ""} key={label}>
-                  <span>{label}</span>
-                  <strong>{value}</strong>
-                </Squircle>
+    <>
+      <PageHeading
+        eyebrow="MARKET LINK WHOLESALERS"
+        title="Good demand. Ready to fulfil."
+        description="Every order here is funded. Confirm the stock, choose a slot, and deliver."
+      >
+        <span className="supplier-funded-note">
+          <ShieldCheck size={18} />
+          Funded orders only
+        </span>
+      </PageHeading>
+      <section className="panel incoming-panel">
+        <SectionHeading title="Incoming community orders">
+          <span className="count-label">
+            {data.orders.filter((item) => item.status === "Placed").length} to confirm
+          </span>
+        </SectionHeading>
+        <div className="table-scroll">
+          <table>
+            <caption className="sr-only">Select a funded order to confirm</caption>
+            <thead>
+              <tr>
+                <th>Pool / order</th>
+                <th>Lines</th>
+                <th>Total</th>
+                <th>Deliver by</th>
+                <th>Escrow</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.orders.map((item) => (
+                <tr key={item.id} className={item.id === order?.id ? "selected-row" : ""}>
+                  <td aria-label={`${item.name} ${item.reference}`}>
+                    <button
+                      className="table-select"
+                      onClick={() => setSelected(item.id)}
+                      aria-pressed={item.id === order?.id}
+                    >
+                      <strong>{item.name}</strong>
+                      <small>{item.reference}</small>
+                    </button>
+                  </td>
+                  <td>{item.lines.length}</td>
+                  <td>
+                    <strong>{money(item.total, data.currency)}</strong>
+                  </td>
+                  <td>{shortDate(item.deliverBy)}</td>
+                  <td>
+                    <Badge status={item.paidAt ? "Delivered" : "Funded · held"} />
+                  </td>
+                  <td>{item.status}</td>
+                </tr>
               ))}
-            </div>
-            <div className="table-scroll ref-supplier-table">
-              <table>
-                <caption className="sr-only">Funded pooled orders</caption>
-                <thead>
-                  <tr>
-                    <th>Pool</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Deliver by</th>
-                    <th>Escrow</th>
-                    <th>
-                      <span className="sr-only">Confirm order</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((item) => (
-                    <tr key={item.id} className={item.id === order?.id ? "selected-row" : ""}>
-                      <td>
-                        <button
-                          className="ref-select-order"
-                          onClick={() => {
-                            setSelected(item.id);
-                            setSlot(1);
-                          }}
-                          aria-pressed={item.id === order?.id}
-                        >
-                          {item.name}
-                        </button>
-                      </td>
-                      <td>{item.lines.length} lines</td>
-                      <td>{money(item.total, data.currency)}</td>
-                      <td>{dayDate(item.deliverBy, true)}</td>
-                      <td>
-                        <span className="ref-green">{item.paidAt ? "Paid" : "Funded · held"}</span>
-                      </td>
-                      <td>
-                        {item.status === "Placed" ? (
-                          <Button
-                            variant="dark"
-                            onClick={() => {
-                              setSelected(item.id);
-                              setSlot(1);
-                            }}
-                            aria-label={`Confirm ${item.name} · Review stock`}
-                          >
-                            Confirm
-                          </Button>
-                        ) : tab === "deliveries" ? (
-                          <ActionLink href={`/supplier/delivery/${item.id}`} variant="dark">
-                            Delivery
-                          </ActionLink>
-                        ) : (
-                          <span className="ref-muted">{item.status}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+            </tbody>
+          </table>
+        </div>
       </section>
       {order ? (
-        <aside className="ref-supplier-detail" key={order.id}>
-          <p className="ref-label">Order {order.reference}</p>
-          <h2>{order.name}</h2>
-          <OrderLines order={order} />
-          <PayoutSummary order={order} />
-          {order.status === "Placed" ? (
-            <>
-              <p className="ref-label ref-slot-label">Delivery slot</p>
-              <fieldset className="ref-slot-picker" aria-label="Delivery slot">
-                {[0, 1, 2].map((index) => {
-                  const d = new Date(order.deliverBy);
-                  d.setUTCDate(d.getUTCDate() + index - 1);
-                  return (
-                    <Squircle asChild cornerRadius={5} key={index}>
-                      <label className={slot === index ? "selected" : ""}>
+        <div className="detail-grid supplier-detail">
+          <div className="detail-main">
+            <section className="panel">
+              <SectionHeading title={`Order detail · ${order.reference}`} subtitle={order.name}>
+                <Badge status={order.status} />
+              </SectionHeading>
+              <OrderLines order={order} />
+            </section>
+            <section className="panel simple-panel">
+              <div className="delivery-slot-title">
+                <Truck size={24} />
+                <div>
+                  <h2>Make room for a good delivery.</h2>
+                  <p>Confirm that every line is in stock, then pick a delivery window.</p>
+                </div>
+              </div>
+              {order.status === "Placed" ? (
+                <>
+                  <fieldset className="slot-options" aria-label="Delivery slot">
+                    {[
+                      "09:00–11:00 · Community hall",
+                      "11:00–13:00 · Community hall",
+                      "14:00–16:00 · Community hall",
+                    ].map((item) => (
+                      <label key={item} className={slot === item ? "selected" : ""}>
                         <input
-                          className="sr-only"
                           type="radio"
                           name="slot"
-                          checked={slot === index}
-                          onChange={() => setSlot(index)}
+                          value={item}
+                          checked={slot === item}
+                          onChange={() => setSlot(item)}
                         />
-                        <span>
-                          {d.toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" })}
-                        </span>
-                        <strong>{d.getUTCDate()}</strong>
+                        <strong>{item.split(" · ")[0]}</strong>
+                        <span>{shortDate(order.deliverBy)}</span>
                       </label>
-                    </Squircle>
-                  );
-                })}
-              </fieldset>
-              <Button
-                className="ref-confirm-stock"
-                disabled={pending || !ready}
-                onClick={() => void confirm()}
-              >
-                {pending ? "Confirming…" : "Confirm stock & slot"}
-                <ArrowRight size={18} />
-              </Button>
-            </>
-          ) : (
-            <div className="ref-confirmed-stock">
-              <p>
-                <Check size={17} />
-                Stock confirmed · {order.slot}
-              </p>
-              <ActionLink href={`/supplier/delivery/${order.id}`} variant="primary">
-                Open driver delivery view
-                <ArrowRight size={18} />
-              </ActionLink>
-            </div>
-          )}
-        </aside>
+                    ))}
+                  </fieldset>
+                  <Button disabled={pending || !ready} onClick={() => void confirm()}>
+                    {pending ? "Confirming…" : "Confirm stock & slot"}
+                    <ArrowRight size={18} />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="success-note">
+                    <CheckCircle size={22} weight="fill" />
+                    Stock confirmed · {order.slot}
+                  </div>
+                  <ActionLink href={`/supplier/delivery/${order.id}`} variant="dark">
+                    {order.status === "Delivered"
+                      ? "View delivery receipt"
+                      : "Open driver delivery view"}
+                    <Truck size={18} />
+                  </ActionLink>
+                </>
+              )}
+            </section>
+          </div>
+          <aside className="detail-rail">
+            <PayoutSummary order={order} />
+            <p className="below-note">
+              <ShieldCheck size={20} />
+              You get paid when the community leader confirms your drop-off with the delivery QR.
+            </p>
+          </aside>
+        </div>
       ) : (
         <EmptyState
-          title="Your next order is coming"
-          description="Funded orders will appear here."
+          title="Your next community order is coming"
+          description="Fully funded orders will appear here, ready to confirm."
         />
       )}
-    </div>
+    </>
   );
 }
-
 export function Delivery({ id }: { id: string }) {
   const { data, mutate, pending, ready, toast } = useApp();
   const [checked, setChecked] = useState<number[]>([]);
-  const [scan, setScan] = useState(false);
-  const [camera, setCamera] = useState(false);
   const [token, setToken] = useState("");
   const order = data.orders.find((item) => item.id === id);
   if (!order)
     return (
-      <EmptyState title="Delivery not found" description="Choose a funded order.">
+      <EmptyState
+        title="Delivery not found"
+        description="Choose an order from the supplier console."
+      >
         <ActionLink href="/supplier">Supplier console</ActionLink>
       </EmptyState>
     );
-  const loaded = ["Loaded", "Delivered"].includes(order.status);
   async function load() {
     try {
       await mutate(`orders/${id}/load`, {});
-      toast("Load checked. Ready for the leader handoff.");
+      toast("Load checked. The delivery QR is ready.");
     } catch {
-      /* Keep checked items. */
+      /* The shared notification reports the error. */
     }
   }
-  async function sample() {
+  async function showQR() {
     try {
       const pass = await api<{ token: string }>(`orders/${id}/pass`);
       setToken(pass.token);
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Couldn't load the handoff QR.", true);
-    }
-  }
-  async function deliver(value = token) {
-    try {
-      await mutate(`orders/${id}/deliver`, { token: value });
-      setScan(false);
-      setCamera(false);
-      toast("Delivered. Your payout has been released.");
-    } catch {
-      /* Keep the scanner available. */
+      toast(error instanceof Error ? error.message : "Could not get a delivery pass.", true);
     }
   }
   return (
-    <section id="delivery-content" className="ref-driver-page ref-phone-page ledger-phone">
-      <PhoneHeader
-        back="/supplier"
-        right={
-          <span className="ref-muted">
-            Status:{" "}
-            <span className="ref-green">
-              {order.status === "Loaded"
-                ? "In transit"
-                : order.status === "Delivered"
-                  ? "Delivered"
-                  : order.status === "Confirmed"
-                    ? "Confirmed"
-                    : "To confirm"}
-            </span>
-          </span>
-        }
-      />
-      <div className="ref-driver-title">
-        <h1>
-          Delivery
-          <br />
-          {order.reference}
-        </h1>
-        <p>
-          {order.name} · drop-off {dayDate(order.deliverBy, true)}
-        </p>
-      </div>
-      <ol className="ref-delivery-stages">
-        {["Confirmed", "Loaded", "Delivered", "Paid"].map((stage, index) => {
-          const done =
-            order.status === "Delivered" ||
-            (index === 0 && order.status !== "Placed") ||
-            (index === 1 && loaded);
-          return (
-            <Squircle asChild cornerRadius={5} key={stage}>
-              <li className={done ? "selected" : ""}>
-                <span>{stage}</span>
-                <strong>{done ? <Check size={22} /> : "—"}</strong>
-              </li>
-            </Squircle>
-          );
-        })}
-      </ol>
-      <p className="ref-label">Load check</p>
-      <div className="ref-load-checklist">
-        {order.lines.map((line, index) => (
-          <label key={index}>
-            <span className="ref-check-control">
-              <input
-                type="checkbox"
-                checked={loaded || checked.includes(index)}
-                disabled={order.status !== "Confirmed"}
-                onChange={(event) =>
-                  setChecked(
-                    event.target.checked
-                      ? [...checked, index]
-                      : checked.filter((value) => value !== index),
-                  )
-                }
-              />
-              {loaded || checked.includes(index) ? (
-                <CheckSquare size={19} weight="fill" />
-              ) : (
-                <Square size={19} />
-              )}
-            </span>
-            <span>{productName(line)}</span>
-            <small>
-              {line.quantity}{" "}
-              {line.name.includes("oil") ? "units" : line.name.includes("soap") ? "packs" : "bags"}
-            </small>
-          </label>
-        ))}
-      </div>
-      <Squircle cornerRadius={7} className="ref-driver-payout">
-        <p>{order.paidAt ? "Payout released" : "Payout on drop-off"}</p>
-        <strong>{money(order.payout, data.currency)}</strong>
-        {order.paidAt ? <Celebrate /> : null}
-      </Squircle>
-      <div className="ref-phone-footer">
-        {order.status === "Placed" ? (
-          <ActionLink href="/supplier">
-            Confirm stock & slot
-            <ArrowRight size={20} />
-          </ActionLink>
-        ) : order.status === "Confirmed" ? (
-          <Button
-            disabled={checked.length !== order.lines.length || pending || !ready}
-            onClick={() => void load()}
-          >
-            {pending ? "Saving load…" : "Mark load checked"}
-            <Truck size={21} />
-          </Button>
-        ) : order.status === "Loaded" ? (
-          <Button onClick={() => setScan(true)} disabled={!ready}>
-            Scan leader QR to confirm
-            <QrCode size={21} />
-          </Button>
-        ) : (
-          <ActionLink href="/supplier">
-            Delivery complete
-            <Check size={22} />
-          </ActionLink>
-        )}
-      </div>
-      <Modal
-        open={scan}
-        onClose={() => {
-          setScan(false);
-          setCamera(false);
-        }}
-        title="Confirm the leader handoff"
-        description="Scan the leader’s signed QR after the goods have been checked. This releases your payout once."
+    <>
+      <Link href="/supplier" className="back-link">
+        <ArrowLeft size={17} />
+        Supplier console
+      </Link>
+      <PageHeading
+        eyebrow={`${order.reference} · DRIVER VIEW`}
+        title="A good delivery starts here."
+        description={`Deliver to Khayelitsha Community Hall by ${shortDate(order.deliverBy)}.`}
       >
-        <div className="form-stack">
-          {camera ? (
-            <CameraScanner
-              onToken={(value) => {
-                setToken(value);
-                setCamera(false);
-              }}
-              onClose={() => setCamera(false)}
-            />
-          ) : (
-            <Button variant="dark" onClick={() => setCamera(true)}>
-              Open camera
-              <QrCode size={18} />
+        <Badge status={order.status} />
+      </PageHeading>
+      <StageStrip
+        stages={["Confirmed", "Loaded", "Delivered", "Paid"]}
+        current={order.status === "Delivered" ? 3 : order.status === "Loaded" ? 1 : 0}
+      />
+      <div className="delivery-layout">
+        <section className="panel simple-panel">
+          <h2>Check your load.</h2>
+          <p>Every box checked is one less thing to worry about at the door.</p>
+          <div className="load-checklist">
+            {order.lines.map((line, index) => (
+              <label key={index}>
+                <input
+                  type="checkbox"
+                  checked={
+                    order.status === "Loaded" ||
+                    order.status === "Delivered" ||
+                    checked.includes(index)
+                  }
+                  disabled={order.status !== "Confirmed"}
+                  onChange={(event) =>
+                    setChecked(
+                      event.target.checked
+                        ? [...checked, index]
+                        : checked.filter((value) => value !== index),
+                    )
+                  }
+                />
+                <span>
+                  <strong>{line.name}</strong>
+                  <small>
+                    {line.quantity} × {line.unit}
+                  </small>
+                </span>
+                <Package size={23} />
+              </label>
+            ))}
+          </div>
+          {order.status === "Placed" ? (
+            <ActionLink href="/supplier" variant="secondary">
+              Confirm stock & slot first
+              <ArrowRight size={17} />
+            </ActionLink>
+          ) : order.status === "Confirmed" ? (
+            <Button
+              onClick={() => void load()}
+              disabled={checked.length !== order.lines.length || pending || !ready}
+            >
+              All checked · mark as loaded
+              <ArrowRight size={18} />
             </Button>
+          ) : order.status === "Loaded" ? (
+            <Button onClick={() => void showQR()} disabled={!ready}>
+              <QrCode size={20} />
+              Show delivery QR
+            </Button>
+          ) : (
+            <div className="success-note">
+              <CheckCircle size={24} weight="fill" />
+              Delivered. Your payout is complete.
+            </div>
           )}
-          <label>
-            Leader delivery QR token
-            <textarea
-              rows={3}
-              value={token}
-              onChange={(event) => setToken(event.target.value.trim())}
-              placeholder="Paste the signed leader handoff token"
-            />
-          </label>
-          <Button variant="secondary" onClick={() => void sample()}>
-            Use this order’s demo QR
-          </Button>
-          <Button disabled={!token || pending || !ready} onClick={() => void deliver()}>
-            {pending ? "Confirming…" : "Confirm drop-off & release"}
-            <ArrowRight size={18} />
-          </Button>
-        </div>
-      </Modal>
-    </section>
+          {token && order.status === "Loaded" ? (
+            <div className="delivery-qr">
+              <QRCodeSVG
+                value={token}
+                size={210}
+                level="M"
+                marginSize={2}
+                title="Signed supplier delivery QR"
+              />
+              <h3>Let the leader scan to confirm.</h3>
+              <p>
+                This QR is valid for 30 minutes. The leader confirms receipt in their order view.
+              </p>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  void navigator.clipboard
+                    .writeText(token)
+                    .then(() => toast("Delivery token copied."))
+                    .catch(() => toast("Copy is unavailable in this browser.", true))
+                }
+              >
+                <Copy size={17} />
+                Copy QR token
+              </Button>
+              <ActionLink href={`/orders/${id}`} variant="ghost">
+                Open leader handoff
+                <ArrowUpRight size={16} />
+              </ActionLink>
+            </div>
+          ) : null}
+        </section>
+        <PayoutSummary order={order} />
+      </div>
+    </>
   );
 }

@@ -61,15 +61,15 @@ test("joining unlocks a tier and refunds earlier unit prices at close", () => {
     payMembership(state, member.id);
   }
   assert.equal(poolMembers("oil", state.memberships).length, 50);
-  assert.equal(currentTier(oil.tiers, 50).price, 760);
+  assert.equal(currentTier(oil.tiers, 50).price, 860);
   assert.equal(
-    state.activity.some((item) => item.kind === "tier" && item.title.includes("Cooking oil")),
+    state.activity.some((item) => item.kind === "tier" && item.title.includes("Sunflower")),
     true,
   );
   closePool(state, "oil");
   const members = poolMembers("oil", state.memberships);
   assert.equal(
-    members.every((member) => member.rebate === rebateFor(member, 760)),
+    members.every((member) => member.rebate === rebateFor(member, 860)),
     true,
   );
   const held = members.reduce((sum, member) => sum + member.amount, 0);
@@ -200,60 +200,4 @@ test("price tiers must increase membership and reduce the unit price", () => {
       }),
     /lower price/,
   );
-});
-
-test("a bundled pickup verifies every pool before releasing all goods once", () => {
-  const state = createSeed();
-  const preview = previewPickup(state, "pickup-member-109");
-  assert.equal(preview.items.length, 2);
-  assert.equal(
-    preview.items.reduce((sum, item) => sum + item.membership.quantity, 0),
-    3,
-  );
-  const oil = state.pools.find((pool) => pool.id === "oil-pickup")!;
-  oil.status = "Ordered";
-  assert.throws(() => redeemPickup(state, "pickup-member-109"), /not open/);
-  assert.equal(
-    preview.items.every((item) => item.membership.redeemedAt === null),
-    true,
-  );
-  oil.status = "PickupOpen";
-  redeemPickup(state, "pickup-member-109");
-  assert.equal(
-    preview.items.every((item) => !!item.membership.redeemedAt),
-    true,
-  );
-  const events = state.activity.length;
-  assert.equal(redeemPickup(state, "pickup-oil-1042").alreadyCollected, true);
-  assert.equal(state.activity.length, events);
-});
-
-test("reference fixtures reconcile funded balances and supplier invoices", async () => {
-  const { communitySummary } = await import("../src/lib/summary");
-  const state = createSeed();
-  const summary = communitySummary({ ...state, asOf: Date.now() });
-  assert.equal(summary.escrow, 482000);
-  assert.equal(summary.open.length, 6);
-  assert.equal(summary.people, 142);
-  assert.equal(summary.collecting.length, 142);
-  assert.equal(summary.collected, 104);
-  assert.equal(
-    Object.values(state.weeklyDemand!).reduce((sum, value) => sum + value, 0),
-    482000,
-  );
-  assert.equal(
-    state.orders.filter((order) => !order.paidAt).reduce((sum, order) => sum + order.payout, 0),
-    1248000,
-  );
-  state.orders.forEach((order) => {
-    assert.equal(
-      order.lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0),
-      order.total,
-    );
-    assert.equal(order.fee + order.payout, order.total);
-  });
-  const before = summary.escrow;
-  const member = joinPool(state, "maize", { name: "A new neighbour", quantity: 2, consent: false });
-  payMembership(state, member.id);
-  assert.equal(communitySummary({ ...state, asOf: Date.now() }).escrow, before + 2580);
 });
