@@ -1,5 +1,5 @@
 /* Cache public, static files only. Never store workspace HTML, APIs or QR passes. */
-const CACHE = "pamoja-static-b1a99347fef6e267";
+const CACHE = "pamoja-static-c8205e1fa610e0b8";
 const ASSETS = [
   "/offline.html",
   "/offline.css",

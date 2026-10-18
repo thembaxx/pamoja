@@ -1,102 +1,78 @@
 "use client";
 
 import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  CheckCircle,
+  CalendarBlank,
+  CaretDown,
+  CaretLeft,
   Copy,
   DownloadSimple,
-  LockKey,
   Minus,
   Plus,
-  ShareNetwork,
   ShieldCheck,
 } from "@phosphor-icons/react";
 import { Squircle } from "@squircle-js/react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { money, nextTier, poolMembers, priceFor, shortDate } from "@/lib/money";
+import { money, nextTier, poolMembers, priceFor } from "@/lib/money";
 import type { Membership } from "@/lib/types";
+import {
+  Celebrate,
+  DisplayMoney,
+  GlassCard,
+  SlideConfirm,
+  SwapArrow,
+  closeLabel,
+  dayDate,
+  productName,
+} from "./design";
 import { api, useApp } from "./provider";
-import { Brand } from "./brand";
-import { ThemeToggle } from "./device-settings";
-import { ActionLink, Button, EmptyState, LiveLabel, ProductIcon, Progress } from "./ui";
+import { ThemeToggle, InstallButton } from "./device-settings";
+import { ActionLink, Button, EmptyState, LiveLabel, Modal, Progress } from "./ui";
 
-function MemberShell({ children, step }: { children: ReactNode; step: number }) {
-  const { syncError } = useApp();
+function MemberShell({ children }: { children: ReactNode }) {
+  const { syncError, ready } = useApp();
   return (
-    <main id="main-content" className="member-world">
-      <header className="member-header">
-        <Brand />
-        <ThemeToggle />
-        <span className="demo-badge">Demo · no real payments</span>
-        <Link href="/" className="member-workspace-link">
-          Leader workspace
-          <ArrowRight size={16} />
-        </Link>
-      </header>
-      <div className="member-container">
+    <main id="main-content" className="ref-member-world" data-ready={ready}>
+      <div className="ref-member-phone glass-phone">
         {syncError ? (
           <div className="connection-banner" role="alert">
             {syncError}
-            <button onClick={() => window.location.reload()}>Try again</button>
+            <button onClick={() => window.location.reload()}>Reconnect</button>
           </div>
         ) : null}
-        <ol className="member-steps">
-          {["Join a pool", "Pay securely", "Your pickup pass"].map((title, index) => (
-            <li key={title} className={index <= step ? "active" : ""}>
-              <span>{index < step ? <Check size={13} /> : index + 1}</span>
-              {title}
-            </li>
-          ))}
-        </ol>
         {children}
-        <p className="member-bottom-note">
-          <ShieldCheck size={18} />A little each. A lot together.
-        </p>
       </div>
-      <footer className="member-footer">
-        Pamoja · Together, for less.<span>Sample market · USD</span>
-      </footer>
     </main>
   );
 }
-function GlassCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+function MemberHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  const { ready, syncError } = useApp();
   return (
-    <Squircle cornerRadius={32} cornerSmoothing={1} className={`glass-card ${className}`}>
-      {children}
-    </Squircle>
+    <header className="phone-header glass-header">
+      <button className="phone-back" onClick={onBack} aria-label="Go back">
+        <CaretLeft size={22} />
+      </button>
+      <span className="phone-header-title">{title}</span>
+      <LiveLabel paused={!ready || !!syncError}>Live</LiveLabel>
+    </header>
   );
 }
-function SerifMoney({ amount, currency }: { amount: number; currency: string }) {
-  const [whole, cents] = money(amount, currency).split(".");
-  return (
-    <span className="serif-money">
-      {whole}
-      <span>.{cents}</span>
-    </span>
-  );
-}
-
 export function MemberJoin({ id }: { id: string }) {
-  const { data, mutate, pending, ready, toast, syncError, now } = useApp();
+  const { data, mutate, pending, ready, now } = useApp();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [quantity, setQuantity] = useState(2);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [method, setMethod] = useState("Mobile money");
-  const [slide, setSlide] = useState(0);
-  const paymentLock = useRef(false);
+  const [details, setDetails] = useState(false);
   const pool = data.pools.find((item) => item.id === id);
   if (!pool)
     return (
-      <MemberShell step={0}>
+      <MemberShell>
         <EmptyState
-          title={ready ? "This pool couldn't be found" : "Opening your community pool…"}
-          description={syncError || "Open the full invitation from your leader to join their pool."}
+          title="Let's find your pool"
+          description="Open the invitation from your community leader."
         >
           <ActionLink href="/">Back to Pamoja</ActionLink>
         </EmptyState>
@@ -106,6 +82,7 @@ export function MemberJoin({ id }: { id: string }) {
   const price = priceFor(pool, data.memberships);
   const next = nextTier(pool.tiers, count);
   const isOpen = pool.status === "Open" && new Date(pool.closesAt).getTime() > now;
+  const total = price * quantity;
   async function join(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -116,274 +93,212 @@ export function MemberJoin({ id }: { id: string }) {
         consent: form.get("consent") === "on",
       });
       setMembership(member);
+      setDetails(false);
       setStep(1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
-      /* Keep the join details editable on an error. */
+      /* Keep entered details available. */
     }
   }
   async function pay() {
-    if (!membership || paymentLock.current) return;
-    paymentLock.current = true;
+    if (!membership) return;
     try {
       const member = await mutate<Membership>(`payments/${membership.id}/confirm`, { method });
-      toast("You're in. Your demo payment is held safely.");
-      router.push(`/pass/${member.id}`);
+      router.push(`/pass/${member.id}?celebrate=1`);
     } catch {
-      paymentLock.current = false;
-      setSlide(0);
+      /* The shared notification reports payment errors. */
     }
   }
   return (
-    <MemberShell step={step}>
-      {step === 0 ? (
-        <>
-          <div className="member-intro">
-            <p className="eyebrow">GOOD THINGS COME IN GROUPS</p>
-            <h1>
-              Every neighbour.
-              <br />A better price.
-            </h1>
-            <p>You’re invited to buy with {data.groupName}.</p>
-          </div>
-          <GlassCard>
-            <div className={`member-product category-${pool.category}`}>
-              <ProductIcon category={pool.category} size={74} />
-              <span>{pool.unit}</span>
-              <LiveLabel>POOL OPEN</LiveLabel>
-            </div>
-            <div className="glass-content">
-              <div className="member-product-heading">
-                <div>
-                  <p className="eyebrow">BUY BETTER, TOGETHER</p>
-                  <h2>{pool.name}</h2>
-                </div>
-                <span className="glass-tag">Bulk savings</span>
-              </div>
-              <div className="member-price">
-                <SerifMoney amount={price} currency={data.currency} />
-                <span>
-                  per {pool.unit}
-                  <small>Current community price</small>
-                </span>
-              </div>
-              <div className="member-pool-progress">
-                <div>
-                  <strong>
-                    {count}
-                    <span> of {next?.minMembers || count} joined</span>
-                  </strong>
-                  <span>
-                    {next
-                      ? `${money(next.price, data.currency)} at ${next.minMembers}`
-                      : "Best price unlocked"}
-                  </span>
-                </div>
-                <Progress
-                  value={count}
-                  max={next?.minMembers || count || 1}
-                  label="Community pool members toward the next price tier"
-                />
-                <p>
-                  {next
-                    ? `${next.minMembers - count} more neighbours unlock the next price drop.`
-                    : "Your community has unlocked the lowest price."}
-                </p>
-              </div>
-              <div className="member-rebate-note">
-                <ShieldCheck size={23} />
-                <p>
-                  If more people join, the price falls and{" "}
-                  <strong>you get the difference back.</strong>
-                </p>
-              </div>
-              <form className="member-join-form" onSubmit={(event) => void join(event)}>
-                <div className="quantity-row">
-                  <div>
-                    <strong>How many for your home?</strong>
-                    <small>{pool.unit} each</small>
-                  </div>
-                  <div className="quantity-stepper">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                      disabled={quantity <= 1}
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus size={18} />
-                    </button>
-                    <output aria-live="polite" aria-label="Quantity">
-                      {quantity}
-                    </output>
-                    <button
-                      type="button"
-                      onClick={() => setQuantity((value) => Math.min(99, value + 1))}
-                      disabled={quantity >= 99}
-                      aria-label="Increase quantity"
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </div>
-                </div>
-                <label>
-                  Your name
-                  <input
-                    name="name"
-                    placeholder="What should we call you?"
-                    required
-                    minLength={1}
-                    maxLength={80}
-                    autoComplete="name"
-                  />
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" name="consent" />
-                  <span>Show my first name in the community activity feed.</span>
-                </label>
-                <Button
-                  type="submit"
-                  className="full-width member-primary"
-                  disabled={pending || !ready || !isOpen}
-                >
-                  {pending
-                    ? "Joining your pool…"
-                    : isOpen
-                      ? `Join pool · ${money(price * quantity, data.currency)}`
-                      : "This pool is closed"}
-                  <ArrowRight size={20} />
-                </Button>
-              </form>
-              <p className="member-date-note">
-                Closes {shortDate(pool.closesAt)} · Pickup {shortDate(pool.pickupAt)}
+    <MemberShell>
+      <div
+        key={step}
+        className={`ref-member-step ${step === 1 ? "ref-member-pay" : "ref-member-join"}`}
+      >
+        <MemberHeader
+          title={step === 0 ? "Join pool" : "Pay"}
+          onBack={() => (step === 1 ? setStep(0) : router.push("/"))}
+        />
+        <div className="ref-member-title">
+          <h1>
+            {step === 0 ? (
+              <>
+                {pool.name},<br />
+                {pool.unit}
+              </>
+            ) : (
+              <>
+                Pay into
+                <br />
+                escrow
+              </>
+            )}
+          </h1>
+          <p>
+            {step === 0
+              ? `${data.groupName} · closes ${closeLabel(pool.closesAt)}`
+              : "Your money is held until the supplier delivers"}
+          </p>
+        </div>
+        {step === 0 ? (
+          <>
+            <GlassCard className="ref-join-price">
+              <p>Price per {pool.category === "oil" ? "unit" : "bag"}</p>
+              <DisplayMoney amount={price} currency={data.currency} serif />
+              <p>
+                {next
+                  ? `Drops to ${money(next.price, data.currency)} at ${next.minMembers} members`
+                  : "Your group has unlocked the best price"}
               </p>
-            </div>
-          </GlassCard>
-        </>
-      ) : (
-        <>
-          <button className="back-link" onClick={() => setStep(0)}>
-            <ArrowLeft size={17} />
-            Back to your pool
-          </button>
-          <div className="member-intro">
-            <p className="eyebrow">YOUR MONEY HAS A SAFE PLACE</p>
-            <h1>
-              A little in.
-              <br />A lot back.
-            </h1>
-            <p>One secure payment. No extra member fees.</p>
-          </div>
-          <GlassCard className="payment-glass">
-            <div className="payment-swap">
-              <div>
-                <p className="eyebrow">YOU PAY</p>
-                <SerifMoney amount={membership?.amount || 0} currency={data.currency} />
-                <span className="glass-tag">{data.currency}</span>
-              </div>
-              <span className="swap-divider">
-                <ArrowRight size={22} />
-              </span>
-              <div>
-                <p className="eyebrow">YOU GET</p>
-                <strong className="receive-title">
-                  {membership?.quantity} × {pool.name}
-                </strong>
-                <span className="receive-unit">
-                  {pool.unit} each · pickup {shortDate(pool.pickupAt)}
+              <Progress
+                value={count}
+                max={next?.minMembers || count || 1}
+                label="Pool progress toward the next price tier"
+              />
+              <div className="ref-progress-caption">
+                <span>
+                  {count} of {next?.minMembers || count} joined
                 </span>
+                <span>{next ? `${next.minMembers - count} to go` : "Unlocked"}</span>
               </div>
+            </GlassCard>
+            <GlassCard className="ref-quantity-card">
+              <span>{pool.category === "oil" ? "Units" : "Bags"}</span>
+              <div className="ref-stepper">
+                <button
+                  aria-label="Decrease quantity"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  disabled={quantity <= 1}
+                >
+                  <Minus size={21} />
+                </button>
+                <output aria-label="Quantity" aria-live="polite" key={quantity}>
+                  {quantity}
+                </output>
+                <button
+                  aria-label="Increase quantity"
+                  onClick={() => setQuantity(Math.min(99, quantity + 1))}
+                  disabled={quantity >= 99}
+                >
+                  <Plus size={21} />
+                </button>
+              </div>
+            </GlassCard>
+            <p className="ref-rebate-note">
+              If more people join, the price falls and you get the difference back.
+            </p>
+            <div className="ref-phone-footer">
+              <Button
+                className="ref-pill"
+                onClick={() => setDetails(true)}
+                disabled={pending || !ready || !isOpen}
+              >
+                {isOpen ? `Continue · ${money(total, data.currency)}` : "This pool is closed"}
+              </Button>
             </div>
-            <div className="glass-content">
-              <fieldset className="payment-methods" aria-label="Payment method">
-                {["Mobile money", "Debit card"].map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setMethod(item)}
-                    className={method === item ? "selected" : ""}
-                    aria-pressed={method === item}
-                  >
-                    {method === item ? <CheckCircle size={18} weight="fill" /> : null}
-                    {item}
-                  </button>
-                ))}
-              </fieldset>
-              <dl className="payment-facts">
+          </>
+        ) : (
+          <>
+            <div className="ref-payment-swap">
+              <GlassCard className="ref-pay-amount">
+                <div>
+                  <span>You pay</span>
+                  <label className="ref-method">
+                    <span className="sr-only">Payment method</span>
+                    <select value={method} onChange={(event) => setMethod(event.target.value)}>
+                      <option>Mobile money</option>
+                      <option>Debit card</option>
+                    </select>
+                    <CaretDown size={14} />
+                  </label>
+                </div>
+                <DisplayMoney amount={membership?.amount || 0} currency={data.currency} serif />
+              </GlassCard>
+              <SwapArrow />
+              <GlassCard className="ref-pay-receive">
+                <div>
+                  <span>You get</span>
+                  <span>Pickup {dayDate(pool.pickupAt, true)}</span>
+                </div>
+                <strong>
+                  {membership?.quantity} × {productName(pool)}
+                </strong>
+              </GlassCard>
+            </div>
+            <GlassCard className="ref-member-fees">
+              <dl>
                 <div>
                   <dt>Member fee</dt>
                   <dd>{money(0, data.currency)}</dd>
-                </div>
-                <div>
-                  <dt>Tier rebates</dt>
-                  <dd>Returned at pool close</dd>
                 </div>
                 <div>
                   <dt>If the pool is cancelled</dt>
                   <dd>Full refund</dd>
                 </div>
               </dl>
-              <div className="member-rebate-note">
-                <LockKey size={23} />
-                <p>
-                  Your payment stays held until the supplier delivers. The supplier pays the service
-                  fee.
-                </p>
-              </div>
-              <div className={`slide-to-pay ${pending ? "is-paying" : ""}`}>
-                <span>
-                  {pending
-                    ? "Confirming your place…"
-                    : `Slide to pay ${money(membership?.amount || 0, data.currency)}`}
-                </span>
-                <span
-                  className="slide-handle"
-                  style={{ left: `calc(6px + ${slide} * (100% - 64px) / 100)` }}
-                >
-                  <ArrowRight size={22} />
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={slide}
-                  aria-label="Slide to confirm demo payment"
-                  disabled={pending || !ready}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    setSlide(value);
-                    if (value === 100) void pay();
-                  }}
-                />
-              </div>
-              <button
-                className="accessible-pay"
-                disabled={pending || !ready}
-                onClick={() => void pay()}
-              >
-                Or confirm demo payment
-                <ArrowRight size={14} />
-              </button>
-              <p className="demo-payment-note">Demo payment · No money will be charged.</p>
+            </GlassCard>
+            <div className="ref-phone-footer">
+              <SlideConfirm
+                label="Slide to pay"
+                onConfirm={pay}
+                pending={pending}
+                disabled={!ready}
+              />
             </div>
-          </GlassCard>
-        </>
-      )}
+          </>
+        )}
+      </div>
+      <Modal
+        open={details}
+        onClose={() => setDetails(false)}
+        title="A name for your pickup pass"
+        description="This is a demo payment. No money will be charged."
+      >
+        <form className="form-stack" onSubmit={(event) => void join(event)}>
+          <label>
+            Your name
+            <input
+              name="name"
+              autoComplete="name"
+              placeholder="What should we call you?"
+              required
+              minLength={1}
+              maxLength={80}
+            />
+          </label>
+          <label className="checkbox-label">
+            <input type="checkbox" name="consent" />
+            <span>Show my first name in the community activity feed.</span>
+          </label>
+          <div className="modal-footer">
+            <Button variant="secondary" type="button" onClick={() => setDetails(false)}>
+              Go back
+            </Button>
+            <Button disabled={pending || !ready} type="submit">
+              {pending ? "Joining…" : "Continue to payment"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </MemberShell>
   );
 }
+
 export function MemberPass({ id }: { id: string }) {
   const { data, ready, toast, mutate } = useApp();
+  const params = useSearchParams();
   const [pass, setPass] = useState<{ token: string; expiresAt: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [expired, setExpired] = useState(false);
+  const [options, setOptions] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
   const member = data.memberships.find((item) => item.id === id);
   const pool = data.pools.find((item) => item.id === member?.poolId);
   async function refreshPass() {
     setLoading(true);
     try {
-      const next = await api<{ token: string; expiresAt: string }>(`passes/${id}`);
-      setPass(next);
+      setPass(await api<{ token: string; expiresAt: string }>(`passes/${id}`));
       setExpired(false);
       setError("");
     } catch (cause) {
@@ -396,8 +311,11 @@ export function MemberPass({ id }: { id: string }) {
     if (!ready) return;
     let disposed = false;
     void api<{ token: string; expiresAt: string }>(`passes/${id}`)
-      .then((next) => {
-        if (!disposed) setPass(next);
+      .then((result) => {
+        if (!disposed) {
+          setPass(result);
+          setError("");
+        }
       })
       .catch((cause) => {
         if (!disposed)
@@ -417,17 +335,29 @@ export function MemberPass({ id }: { id: string }) {
   }, [pass]);
   if (!member || !pool)
     return (
-      <MemberShell step={2}>
+      <MemberShell>
         <EmptyState
           title="Let's find your pickup pass"
-          description="Join and fund a pool in this demo workspace to get a pickup pass."
+          description="Join and fund a pool to get your signed pickup pass."
         >
-          <ActionLink href="/join/maize">Join a community pool</ActionLink>
+          <ActionLink href="/join/maize">Join a pool</ActionLink>
         </EmptyState>
       </MemberShell>
     );
   const count = poolMembers(pool.id, data.memberships).length;
   const next = nextTier(pool.tiers, count);
+  const paid = ["held", "released"].includes(member.status);
+  const state = member.redeemedAt
+    ? "Collected"
+    : member.status === "refunded"
+      ? "Refunded"
+      : member.status === "cancelled"
+        ? "Cancelled"
+        : member.status === "released"
+          ? "Ready for pickup"
+          : paid
+            ? "Paid · in escrow"
+            : "Awaiting payment";
   async function share() {
     if (!pool) return;
     try {
@@ -436,7 +366,7 @@ export function MemberPass({ id }: { id: string }) {
       if (navigator.share)
         await navigator.share({
           title: `Buy ${pool.name} with Pamoja`,
-          text: "Every neighbour brings a better price closer.",
+          text: "The more of us who join, the less we pay.",
           url,
         });
       else {
@@ -447,112 +377,142 @@ export function MemberPass({ id }: { id: string }) {
       if (cause instanceof Error && cause.name !== "AbortError") toast(cause.message, true);
     }
   }
+  function download(blob: Blob, name: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   function save() {
     const svg = qrRef.current?.querySelector("svg");
-    if (!svg) return;
-    const url = URL.createObjectURL(
-      new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }),
+    if (svg) {
+      download(
+        new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }),
+        "pamoja-pickup-pass.svg",
+      );
+      toast("Pickup QR saved.");
+    }
+  }
+  function calendar() {
+    if (!pool) return;
+    const start = new Date(pool.pickupAt);
+    const end = new Date(start.getTime() + 2 * 3600000);
+    const stamp = (d: Date) =>
+      d
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+    const escape = (s: string) =>
+      s.replace(/\\/g, "\\\\").replace(/[,;]/g, "\\$&").replace(/\r?\n/g, "\\n");
+    download(
+      new Blob(
+        [
+          `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Pamoja//Pickup//EN\r\nBEGIN:VEVENT\r\nUID:${id}@pamoja\r\nDTSTAMP:${stamp(new Date())}\r\nDTSTART:${stamp(start)}\r\nDTEND:${stamp(end)}\r\nSUMMARY:${escape(`Pamoja pickup · ${pool.name}`)}\r\nLOCATION:Community hall\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`,
+        ],
+        { type: "text/calendar" },
+      ),
+      "pamoja-pickup.ics",
     );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "pamoja-pickup-pass.svg";
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("QR saved. Refresh your pass if it expires before collection.");
+    toast("Pickup added to your calendar download.");
   }
   return (
-    <MemberShell step={2}>
-      <div className="member-intro">
-        <span className="member-success-icon">
-          <Check size={30} />
-        </span>
-        <p className="eyebrow">ONE MORE NEIGHBOUR. ONE STEP CLOSER.</p>
-        <h1>You’re in, {member.name.split(" ")[0]}.</h1>
-        <p>Your place is held. Keep this pass for pickup day.</p>
-      </div>
-      <GlassCard className="pass-card">
-        <div className="pass-heading">
-          <div>
-            <p className="eyebrow">YOUR PICKUP PASS</p>
-            <h2>{pool.name}</h2>
-          </div>
-          <span className="glass-tag">
-            {member.redeemedAt
-              ? "Collected"
-              : member.status === "refunded"
-                ? "Refunded"
-                : member.status === "cancelled"
-                  ? "Cancelled"
-                  : member.status === "released"
-                    ? "Ready for pickup"
-                    : member.status === "held"
-                      ? "Paid · held"
-                      : "Awaiting payment"}
+    <MemberShell>
+      <div className="ref-member-pass">
+        <div className="ref-pass-status">
+          <span className="live-label">
+            <span className="live-dot" />
+            {state}
           </span>
+          <LiveLabel paused={!ready}>Live</LiveLabel>
         </div>
-        <div className="pass-qr" ref={qrRef}>
-          {pass && !expired ? (
-            <QRCodeSVG
-              value={pass.token}
-              size={210}
-              level="M"
-              marginSize={2}
-              title="Your signed Pamoja pickup pass"
-            />
-          ) : (
-            <div className="qr-placeholder">
-              <ShieldCheck size={44} />
-              <span>
-                {error ||
-                  (expired
-                    ? "Your QR has expired. Refresh it below."
-                    : "Preparing your secure pass…")}
-              </span>
-            </div>
-          )}
+        <div className="ref-member-title">
+          <h1>{paid ? "You’re in." : state}</h1>
+          <p>
+            {member.redeemedAt
+              ? "All collected. Thank you for buying together."
+              : "Show this pass when you collect"}
+          </p>
+          <Celebrate active={params.get("celebrate") === "1"} />
         </div>
-        <p className="qr-instruction">
-          Your community leader scans this at collection.
-          <br />
-          Valid for 30 minutes · Refresh whenever you need.
-        </p>
-        <button
-          className="text-link refresh-pass"
-          onClick={() => void refreshPass()}
-          disabled={loading}
-        >
-          {loading ? "Refreshing…" : "Refresh QR pass"}
-          <ArrowRight size={14} />
-        </button>
-        <div className="pass-perforation" />
-        <dl className="pass-details">
-          <div>
-            <dt>Picking up</dt>
-            <dd>
-              {member.quantity} × {pool.unit}
-            </dd>
-          </div>
-          <div>
-            <dt>Pickup day</dt>
-            <dd>{shortDate(pool.pickupAt)}</dd>
-          </div>
-          <div>
-            <dt>Collection point</dt>
-            <dd>Community hall</dd>
-          </div>
-          <div>
-            <dt>You paid</dt>
-            <dd>{money(member.amount, data.currency)}</dd>
-          </div>
-          {member.rebate > 0 ? (
-            <div>
-              <dt>Tier rebate returned</dt>
-              <dd>{money(member.rebate, data.currency)}</dd>
+        <GlassCard className="ref-pickup-pass">
+          <button
+            className="ref-pass-qr-button"
+            aria-label="Pickup pass options"
+            onClick={() => setOptions(true)}
+          >
+            <div className="ref-pass-qr" ref={qrRef}>
+              {pass && !expired && paid ? (
+                <QRCodeSVG
+                  value={pass.token}
+                  size={156}
+                  level="M"
+                  marginSize={2}
+                  bgColor="#ffffff"
+                  fgColor="#1b3338"
+                  title="Your signed Pamoja pickup pass"
+                />
+              ) : (
+                <div className="ref-qr-placeholder">
+                  <ShieldCheck size={40} />
+                  <span>{error || (expired ? "Refresh your QR" : "Preparing your pass…")}</span>
+                </div>
+              )}
             </div>
-          ) : null}
-        </dl>
-        <div className="pass-actions">
-          <Button variant="dark" onClick={save} disabled={!pass || expired}>
+          </button>
+          <h2>
+            {dayDate(pool.pickupAt, true)} · {data.groupName}
+          </h2>
+          <p>
+            {member.quantity} × {productName(pool)}
+          </p>
+        </GlassCard>
+        <GlassCard className="ref-pass-progress">
+          <div>
+            <span>Pool progress</span>
+            <span>
+              {count} of {next?.minMembers || count}
+            </span>
+          </div>
+          <Progress value={count} max={next?.minMembers || count || 1} label="Live pool progress" />
+          <p>
+            {next
+              ? `${next.minMembers - count} more unlocks ${money(next.price, data.currency)} — share it with your group`
+              : "Your group has unlocked the best price"}
+          </p>
+        </GlassCard>
+        <div className="ref-phone-footer ref-pass-footer">
+          <Squircle asChild cornerRadius={22}>
+            <button
+              className="ref-calendar"
+              onClick={calendar}
+              aria-label="Save pickup to calendar"
+            >
+              <CalendarBlank size={25} />
+            </button>
+          </Squircle>
+          <Button
+            className="ref-pill"
+            onClick={() => void share()}
+            disabled={pool.status !== "Open"}
+          >
+            {pool.status === "Open" ? "Share to group" : "Pool closed"}
+          </Button>
+        </div>
+      </div>
+      <Modal
+        open={options}
+        onClose={() => setOptions(false)}
+        title="Your pickup pass"
+        description="Your signed QR expires after 30 minutes. Refresh it before collection."
+      >
+        <div className="form-stack">
+          {error ? <p role="alert">{error}</p> : null}
+          <Button onClick={() => void refreshPass()} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh QR pass"}
+          </Button>
+          <Button variant="secondary" onClick={save} disabled={!pass || expired}>
             <DownloadSimple size={18} />
             Save QR pass
           </Button>
@@ -562,47 +522,24 @@ export function MemberPass({ id }: { id: string }) {
               void navigator.clipboard
                 .writeText(pass?.token || "")
                 .then(() => toast("Pickup token copied."))
-                .catch(() => toast("Copy is unavailable in this browser.", true))
+                .catch(() => toast("Copy unavailable in this browser.", true))
             }
             disabled={!pass || expired}
           >
             <Copy size={18} />
             Copy token
           </Button>
+          <div className="ref-device-tools">
+            <span>Appearance</span>
+            <ThemeToggle />
+            <InstallButton />
+          </div>
+          <p>
+            {state} · {money(member.amount, data.currency)} paid
+            {member.rebate ? ` · ${money(member.rebate, data.currency)} rebate returned` : ""}
+          </p>
         </div>
-      </GlassCard>
-      <GlassCard className="share-card">
-        <LiveLabel>YOUR COMMUNITY IS GROWING</LiveLabel>
-        <div className="share-progress">
-          <strong>
-            {count}
-            <span> / {next?.minMembers || count} joined</span>
-          </strong>
-          {next ? (
-            <span>Next price: {money(next.price, data.currency)}</span>
-          ) : (
-            <span>Best price unlocked</span>
-          )}
-        </div>
-        <Progress value={count} max={next?.minMembers || count || 1} label="Live pool growth" />
-        <p>
-          Know someone who’d love a better price?
-          <br />
-          Bring them in. Everyone wins.
-        </p>
-        <Button
-          className="full-width member-primary"
-          onClick={() => void share()}
-          disabled={pool.status !== "Open"}
-        >
-          <ShareNetwork size={20} />
-          {pool.status === "Open" ? "Share to your group" : "This pool has closed"}
-        </Button>
-      </GlassCard>
-      <Link className="member-home-link" href="/pickups">
-        Try the leader pickup view
-        <ArrowRight size={16} />
-      </Link>
+      </Modal>
     </MemberShell>
   );
 }
