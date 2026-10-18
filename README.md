@@ -17,6 +17,8 @@ pnpm dev
 
 Open `http://localhost:3000`. A seeded workspace is created automatically. No service accounts or payment keys are needed.
 
+The public introduction is at `/about`. Workspace screens remain at their existing routes.
+
 ```sh
 pnpm check        # Formatting, lint, TypeScript and domain/storage tests
 pnpm build       # Production build
@@ -32,6 +34,22 @@ pnpm test:e2e
 ```
 
 With an existing Chromium installation, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path. CI builds and tests with Node.js 24.
+
+For service-worker and offline-launch tests, stop any development server, run `pnpm build`, then `PWA_TESTS=1 pnpm test:e2e`. Playwright starts the production server. Development mode intentionally does not register a service worker.
+
+## Brand, discovery and installation
+
+Pamoja’s app icon is a sculpted mint community knot: three ribbons meeting around a shared centre. The wordmark, favicon, Apple touch icon, 192/512px app icons, maskable variants and social card share that direction. The [brand notes](docs/branding/README.md) describe the exports.
+
+`/about` provides a server-rendered introduction, canonical metadata, Open Graph/Twitter previews and WebApplication structured data. `sitemap.xml` lists that public page. Workspace pages use `noindex`; robots rules exclude member, payment, order, invitation and pass routes, and APIs send `X-Robots-Tag`. These directives are discovery controls, not access control. `/llms.txt` describes the app and its demo/privacy boundaries; `/llm.txt` serves the same content for compatibility.
+
+Set `NEXT_PUBLIC_SITE_URL` to the actual HTTPS production origin **before building**. The development fallback is `http://localhost:3000`. Canonical URLs, the sitemap, social metadata and LLM documentation all use this value.
+
+Install Pamoja from the sidebar, Settings or the public introduction. Supporting browsers offer a native install prompt; other browsers receive home-screen instructions. The manifest includes safe-zone maskable icons, desktop/phone screenshots, stable app identity and Pools/Pickups shortcuts. Updates wait for “Update & reload” or until all older app windows close, so a new worker does not interrupt a payment or collection task.
+
+System, Light and Dark appearance settings persist on the device and sync between tabs. The document canvas, member pages, loading/error screens, browser theme color and offline screen share the same background. A theme-specific manifest matches installation colors to the selected appearance. Installed launch-screen metadata can refresh on a browser/OS schedule; an installed splash screen cannot be recolored instantly by page JavaScript. Safe-area padding and dynamic viewport sizing accommodate notches, home indicators and mobile keyboards. Supported devices keep the camera awake while scanning; invite sharing uses the native share sheet with a clipboard fallback.
+
+The production service worker caches a public offline page and static resources. Navigation stays network-first, with a branded fallback if the network fails. Workspace HTML, API responses, invite URLs, payment data and signed pickup passes are never written to its caches. Reopening offline shows the fallback; it does not restore a private workspace or enable offline payments/verification. Existing open collection screens retain their offline scan queue. Push notifications and automatic background financial actions are not implemented.
 
 ## Try the whole journey
 
@@ -71,7 +89,7 @@ Each browser receives an HttpOnly, SameSite demo-session cookie and an isolated,
 
 SQLite uses WAL mode, parameterized queries and transactions. Mutations require an idempotency key. Failed mutations roll back. QR tokens use HMAC signatures, bind the workspace and handoff purpose, expire after 30 minutes and are verified on the server. Repeated pickups and delivery confirmations cannot release goods or payouts twice.
 
-Scans made in an already open collection screen can queue offline in browser storage. Goods remain unreleased until online verification and an explicit item-release action. Camera scanning uses `BarcodeDetector` where supported, with token entry and sample passes as fallbacks. There is no offline application cache.
+Scans made in an already open collection screen can queue offline in browser storage. Goods remain unreleased until online verification and an explicit item-release action. Camera scanning uses `BarcodeDetector` where supported, with token entry and sample passes as fallbacks. The offline launch fallback is available after a successful first visit to the production app.
 
 The app refreshes actual workspace data every 10 seconds and on reconnect/tab focus. Set `NEXT_PUBLIC_SIGNALR_URL` to an existing compatible hub to also invalidate data on the five handoff events. The hub must handle authentication and group membership; an ASP.NET SignalR server is not included. Polling continues when the hub is unavailable.
 

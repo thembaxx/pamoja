@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const production = !!process.env.CI || process.env.PWA_TESTS === "1";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
@@ -23,9 +25,9 @@ export default defineConfig({
       : undefined,
   },
   webServer: {
-    command: process.env.CI ? "pnpm start --port 3000" : "pnpm dev --port 3000",
+    command: production ? "pnpm start --port 3000" : "pnpm dev --port 3000",
     url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !production,
     timeout: 120000,
   },
 });

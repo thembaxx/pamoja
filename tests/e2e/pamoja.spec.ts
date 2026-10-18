@@ -54,6 +54,7 @@ test("member joins, pays, supplier fulfils, leader delivers, and pickup releases
   await expect(page.getByText("Ready for pickup", { exact: true })).toBeVisible();
   const pass = (await (await page.request.get(`/api/passes/${member.id}`)).json()).data;
   await page.goto("/pickups");
+  await expect(page.getByText("Workspace synced", { exact: true })).toBeVisible();
   await page.getByLabel("Pickup pool").selectOption("maize");
   await page.getByLabel("Or paste the pickup QR token").fill(pass.token);
   await page.getByRole("button", { name: "Verify pass", exact: true }).click();

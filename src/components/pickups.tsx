@@ -11,9 +11,10 @@ import {
   WifiSlash,
   X,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { poolMembers, shortDate } from "@/lib/money";
 import type { PickupPreview } from "@/lib/types";
+import { useScreenWakeLock } from "@/lib/use-screen-wake-lock";
 import { api, useApp } from "./provider";
 import { Badge, Button, EmptyState, PageHeading, SectionHeading } from "./ui";
 
@@ -28,6 +29,11 @@ function CameraScanner({
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
+  useScreenWakeLock(!error);
+  const onScan = useEffectEvent((token: string) => {
+    onToken(token);
+    onClose();
+  });
   useEffect(() => {
     let stream: MediaStream | undefined;
     let frame = 0;
@@ -59,8 +65,7 @@ function CameraScanner({
           try {
             const found = await detector.detect(ref.current);
             if (found[0]) {
-              onToken(found[0].rawValue);
-              onClose();
+              onScan(found[0].rawValue);
               return;
             }
           } catch {
@@ -81,7 +86,7 @@ function CameraScanner({
       cancelAnimationFrame(frame);
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [onToken, onClose]);
+  }, []);
   return (
     <div className="camera-view">
       <button className="icon-button" onClick={onClose} aria-label="Close camera">

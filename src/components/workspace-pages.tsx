@@ -1,5 +1,7 @@
 "use client";
 
+import { DeviceSettings } from "./device-settings";
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -518,6 +520,7 @@ export function Settings() {
           </ActionLink>
         </section>
       </div>
+      <DeviceSettings />
     </>
   );
 }
