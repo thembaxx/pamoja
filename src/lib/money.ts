@@ -1,11 +1,26 @@
 import type { Membership, Pool, Tier } from "./types";
 
 export function money(cents: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-ZA", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(cents / 100);
+}
+export function moneyParts(cents: number, currency = "ZAR") {
+  const parts = new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).formatToParts(cents / 100);
+  return {
+    whole: parts
+      .filter((part) => part.type !== "decimal" && part.type !== "fraction")
+      .map((part) => part.value)
+      .join(""),
+    decimal: parts.find((part) => part.type === "decimal")?.value ?? ".",
+    fraction: parts.find((part) => part.type === "fraction")?.value ?? "",
+  };
 }
 export function currentTier(tiers: Tier[], members: number): Tier {
   const sorted = [...tiers].sort((a, b) => a.minMembers - b.minMembers);

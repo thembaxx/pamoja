@@ -14,9 +14,20 @@ import {
   previewPickup,
   redeemPickup,
 } from "../src/lib/domain";
-import { currentTier, poolMembers, rebateFor, supplierSettlement } from "../src/lib/money";
+import {
+  currentTier,
+  money,
+  moneyParts,
+  poolMembers,
+  rebateFor,
+  supplierSettlement,
+} from "../src/lib/money";
 import { createSeed } from "../src/lib/seed";
 
+test("money formats cents as South African rand", () => {
+  assert.equal(money(1250), "R\u00a012,50");
+  assert.deepEqual(moneyParts(1250), { whole: "R\u00a012", decimal: ",", fraction: "50" });
+});
 test("tier boundaries use funded members and the highest unlocked tier", () => {
   const { tiers } = createSeed().pools[0];
   assert.equal(currentTier(tiers, 19).price, 1420);
