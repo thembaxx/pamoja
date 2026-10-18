@@ -354,7 +354,7 @@ export function Pickups() {
           <PhoneHeader
             glass
             title="Pickup"
-            back="/pickups"
+            back="/"
             right={
               <button className="live-label" onClick={() => setFilters(true)}>
                 <span className="live-dot" />

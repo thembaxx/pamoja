@@ -147,7 +147,7 @@ export function OrderReview() {
   if (!pool)
     return (
       <div className="ref-phone-page">
-        <PhoneHeader back="/orders" glass={glass} title={glass ? "Order" : undefined} />
+        <PhoneHeader back="/" glass={glass} title={glass ? "Order" : undefined} />
         <EmptyState
           title="Your orders are on their way"
           description="Close a funded pool to review a new wholesale order."
