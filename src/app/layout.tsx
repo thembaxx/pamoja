@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { PwaProvider } from "@/components/pwa-provider";
 import { siteDescription, siteName, siteTitle, siteUrl } from "@/lib/site";
 import { themeBootstrap, themeColors } from "@/lib/theme";
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <a href="/about">Learn about Pamoja</a>.
           </p>
         </noscript>
+        <Analytics />
       </body>
     </html>
   );
