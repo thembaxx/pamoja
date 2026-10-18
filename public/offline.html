@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f3f3f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#142528" media="(prefers-color-scheme: dark)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>We’ll be back together · Pamoja</title>
+    <link rel="icon" href="/icons/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      function applyTheme() {
+        let preference = "system";
+        try {
+          preference = localStorage.getItem("pamoja-theme") || preference;
+        } catch {}
+        const theme =
+          preference === "light" || preference === "dark"
+            ? preference
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+        const manifest = document.querySelector('link[rel="manifest"]');
+        if (manifest) manifest.href = "/manifest.webmanifest?theme=" + theme;
+        document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+          meta.content = theme === "dark" ? "#142528" : "#f3f3f1";
+          meta.removeAttribute("media");
+        });
+      }
+      applyTheme();
+      matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+      addEventListener("storage", applyTheme);
+    </script>
+    <link rel="stylesheet" href="/offline.css" />
+  </head>
+  <body>
+    <main id="main-content">
+      <img src="/icons/app-192.png" width="88" height="88" alt="Pamoja" />
+      <p class="eyebrow">A LITTLE PAUSE. STILL TOGETHER.</p>
+      <h1>We’ll be back<br />together.</h1>
+      <p>
+        You’re offline, or Pamoja couldn’t be reached. Reconnect to open your workspace and see the
+        latest from your community.
+      </p>
+      <button type="button" onclick="location.reload()">
+        Try again
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path d="M6 18 18 6M6 6h12v12" />
+        </svg>
+      </button>
+      <aside>
+        <h2>Your next step</h2>
+        <p>
+          If your collection desk is already open in another tab, you can keep queuing scans there.
+          Your queued scans remain on this device until online verification. Payments, signed passes
+          and releasing goods need a connection.
+        </p>
+      </aside>
+      <p class="footer">Pamoja · A little each. A lot together.</p>
+      <noscript><p>Reconnect and reload. JavaScript is needed to open your workspace.</p></noscript>
+    </main>
+  </body>
+</html>

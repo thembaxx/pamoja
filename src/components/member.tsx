@@ -21,7 +21,8 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { money, nextTier, poolMembers, priceFor, shortDate } from "@/lib/money";
 import type { Membership } from "@/lib/types";
 import { api, useApp } from "./provider";
-import { Brand } from "./shell";
+import { Brand } from "./brand";
+import { ThemeToggle } from "./device-settings";
 import { ActionLink, Button, EmptyState, LiveLabel, ProductIcon, Progress } from "./ui";
 
 function MemberShell({ children, step }: { children: ReactNode; step: number }) {
@@ -30,6 +31,7 @@ function MemberShell({ children, step }: { children: ReactNode; step: number }) 
     <main id="main-content" className="member-world">
       <header className="member-header">
         <Brand />
+        <ThemeToggle />
         <span className="demo-badge">Demo · no real payments</span>
         <Link href="/" className="member-workspace-link">
           Leader workspace

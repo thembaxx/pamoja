@@ -26,6 +26,8 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useApp } from "./provider";
 import { ActionLink, LiveLabel, Modal, TextLink } from "./ui";
+import { Brand } from "./brand";
+import { InstallButton, ThemeToggle } from "./device-settings";
 
 const navigation = [
   { href: "/", label: "Dashboard", icon: SquaresFour },
@@ -36,16 +38,6 @@ const navigation = [
   { href: "/pickups", label: "Pickups", icon: QrCode },
   { href: "/suppliers", label: "Suppliers", icon: Buildings },
 ];
-export function Brand({ light = false }: { light?: boolean }) {
-  return (
-    <Link href="/" className={`brand ${light ? "brand-light" : ""}`} aria-label="Pamoja home">
-      <CirclesThree size={32} weight="fill" />
-      <span>
-        pamoja<span className="brand-period">.</span>
-      </span>
-    </Link>
-  );
-}
 export function Shell({ children, onNewPool }: { children: ReactNode; onNewPool: () => void }) {
   const { data, syncError, ready } = useApp();
   const path = usePathname();
@@ -138,6 +130,7 @@ export function Shell({ children, onNewPool }: { children: ReactNode; onNewPool:
           )}
         </nav>
         <div className="sidebar-bottom">
+          <InstallButton className="sidebar-install" />
           <div className="together-note">
             <Handshake size={26} weight="light" />
             <p>
@@ -183,6 +176,7 @@ export function Shell({ children, onNewPool }: { children: ReactNode; onNewPool:
             <span className="demo-badge">Demo</span>
           </div>
           <div className="topbar-actions">
+            <ThemeToggle />
             <LiveLabel paused={!ready || !!syncError}>
               {syncError ? "Sync paused" : ready ? "Workspace synced" : "Connecting"}
             </LiveLabel>
@@ -213,7 +207,7 @@ export function Shell({ children, onNewPool }: { children: ReactNode; onNewPool:
           {children}
         </main>
         <footer className="workspace-footer">
-          <span>Pamoja · Together, for less.</span>
+          <Link href="/about">Pamoja · Together, for less.</Link>
           <span>Sample data · USD · No real payments</span>
         </footer>
       </div>

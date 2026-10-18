@@ -1,6 +1,13 @@
 "use client";
 
-import { Copy, LinkSimple, Plus, ShieldCheck, UsersThree } from "@phosphor-icons/react";
+import {
+  Copy,
+  LinkSimple,
+  Plus,
+  ShareNetwork,
+  ShieldCheck,
+  UsersThree,
+} from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { money } from "@/lib/money";
@@ -172,6 +179,24 @@ export function InviteDialog({
     selected || initialPool || data.pools.find((pool) => pool.status === "Open")?.id || "";
   const pool = data.pools.find((item) => item.id === poolId);
   const currentLink = generatedFor === poolId ? invite : "";
+  async function share() {
+    if (!currentLink) return;
+    try {
+      if (navigator.share)
+        await navigator.share({
+          title: `Buy ${pool?.name || "together"} with Pamoja`,
+          text: "Every neighbour brings a better price closer.",
+          url: currentLink,
+        });
+      else {
+        await navigator.clipboard.writeText(currentLink);
+        toast("Invite link copied. Share it with your community.");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name !== "AbortError")
+        toast("Use the shareable link above to invite your community.");
+    }
+  }
   async function copy() {
     try {
       let url = currentLink;
@@ -242,6 +267,12 @@ export function InviteDialog({
           <Button onClick={onClose} variant="secondary">
             Done
           </Button>
+          {currentLink ? (
+            <Button onClick={() => void share()} variant="secondary">
+              <ShareNetwork size={18} />
+              Share invite
+            </Button>
+          ) : null}
           <Button onClick={() => void copy()} disabled={!pool || pending || !ready}>
             <Copy size={18} />
             {pending ? "Preparing link…" : "Copy invite link"}
