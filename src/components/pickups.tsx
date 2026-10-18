@@ -2,25 +2,37 @@
 
 import {
   ArrowRight,
+  CaretLeft,
   Camera,
-  CheckCircle,
   Clock,
   QrCode,
   Scan,
-  ShieldCheck,
   WifiSlash,
   X,
 } from "@phosphor-icons/react";
+import { QRCodeSVG } from "qrcode.react";
+import { Squircle } from "@squircle-js/react";
+import {
+  useDesign,
+  BottomNav,
+  Celebrate,
+  DateStrip,
+  GlassCard,
+  PhoneHeader,
+  initials,
+  productName,
+  shortName,
+} from "./design";
 import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
-import { poolMembers, shortDate } from "@/lib/money";
+import { poolMembers } from "@/lib/money";
 import type { PickupPreview } from "@/lib/types";
 import { useScreenWakeLock } from "@/lib/use-screen-wake-lock";
 import { api, useApp } from "./provider";
-import { Badge, Button, EmptyState, PageHeading, SectionHeading } from "./ui";
+import { Button, EmptyState, Modal } from "./ui";
 
 type Detector = { detect: (video: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
 type DetectorConstructor = new (options: { formats: string[] }) => Detector;
-function CameraScanner({
+export function CameraScanner({
   onToken,
   onClose,
 }: {
@@ -149,12 +161,16 @@ const readOffline = () => !navigator.onLine;
 const serverOffline = () => false;
 export function Pickups() {
   const { data, mutate, pending, ready, toast, now } = useApp();
+  const { glass } = useDesign();
+  const [scanner, setScanner] = useState(false);
+  const [filters, setFilters] = useState(false);
+  const [dateIndex, setDateIndex] = useState(0);
+  const [checkedItems, setCheckedItems] = useState<string[]>([]);
   const [selected, setSelected] = useState("");
   const [filter, setFilter] = useState("All pickups");
   const [query, setQuery] = useState("");
   const [token, setToken] = useState("");
   const [preview, setPreview] = useState<PickupPreview | null>(null);
-  const [checked, setChecked] = useState(false);
   const [camera, setCamera] = useState(false);
   const rawQueue = useSyncExternalStore(subscribeQueue, readQueue, emptyQueue);
   const queue = parseQueue(rawQueue);
@@ -163,7 +179,7 @@ export function Pickups() {
   const pool = pools.find((item) => item.id === selected) || pools[0];
   const members = pool ? poolMembers(pool.id, data.memberships) : [];
   const collected = members.filter((member) => member.redeemedAt).length;
-  const filtered = members.filter(
+  const filtered = (dateIndex === 0 ? members : []).filter(
     (member) =>
       (filter === "All pickups" ||
         (filter === "Waiting" ? !member.redeemedAt : !!member.redeemedAt)) &&
@@ -178,7 +194,9 @@ export function Pickups() {
         if (disposed) return;
         setToken(queuedToken);
         setPreview(result);
-        setChecked(false);
+        setScanner(true);
+        setFilters(false);
+        setCheckedItems([]);
         toast(
           result.alreadyCollected
             ? "Queued pass was already collected. No goods released."
@@ -212,7 +230,7 @@ export function Pickups() {
   async function verify(value = token) {
     if (!value.trim()) return;
     setToken(value.trim());
-    setChecked(false);
+    setCheckedItems([]);
     if (!navigator.onLine) {
       queueScan(value.trim());
       return;
@@ -220,6 +238,8 @@ export function Pickups() {
     try {
       const result = await mutate<PickupPreview>("pickups/verify", { token: value.trim() });
       setPreview(result);
+      setScanner(true);
+      setFilters(false);
       if (result.alreadyCollected)
         toast("This pass has already been collected. Nothing was released again.");
     } catch (cause) {
@@ -256,261 +276,343 @@ export function Pickups() {
       /* Preserve the verified item list for a retry. */
     }
   }
-  return (
-    <>
-      <PageHeading
-        eyebrow="THE LAST MILE, TOGETHER"
-        title="A familiar face. A verified pickup."
-        description="Scan the pass, check the items, and send a neighbour home with a little more."
+  const activePreview = preview;
+  const items = activePreview?.items || [];
+  const itemCount = items.reduce((sum, item) => sum + item.membership.quantity, 0);
+  const allChecked =
+    items.length > 0 && items.every((item) => checkedItems.includes(item.membership.id));
+  const showScanner = glass || scanner;
+  const scanControls = (
+    <div className="form-stack">
+      {camera ? (
+        <CameraScanner onToken={(value) => void verify(value)} onClose={() => setCamera(false)} />
+      ) : (
+        <Button variant="dark" onClick={() => setCamera(true)} disabled={offline}>
+          <Camera size={18} />
+          Open camera
+        </Button>
+      )}
+      <Button
+        variant="secondary"
+        onClick={() => void sample()}
+        disabled={pending || !ready || offline || !members.length}
       >
-        <span className={`pickup-day ${offline ? "is-offline" : ""}`}>
-          {offline ? <WifiSlash size={18} /> : <QrCode size={18} />}{" "}
-          {offline
-            ? "Offline · scans will queue"
-            : pool
-              ? `Pickup day · ${shortDate(pool.pickupAt)}`
-              : "Collection desk"}
-        </span>
-      </PageHeading>
-      <div className="pickup-layout">
-        <div className="pickup-list-column">
-          <div className="pickup-summary">
-            <div>
-              <strong>
-                {collected}
-                <span> / {members.length}</span>
-              </strong>
-              <p>neighbours have collected</p>
+        Try a sample pass
+      </Button>
+      <form
+        className="form-stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void verify();
+        }}
+      >
+        <label>
+          Or paste the pickup QR token
+          <textarea
+            rows={3}
+            placeholder="Paste a signed pickup token…"
+            value={token}
+            onChange={(event) => {
+              setToken(event.target.value);
+              setPreview(null);
+            }}
+            maxLength={2000}
+          />
+        </label>
+        <Button variant="secondary" disabled={!token.trim() || pending || !ready} type="submit">
+          {offline ? "Queue this scan" : pending ? "Verifying…" : "Verify pass"}
+          <ArrowRight size={17} />
+        </Button>
+      </form>
+      {queue.length ? (
+        <div className="queued-scans">
+          <strong>
+            <Clock size={17} />
+            {queue.length} scan{queue.length === 1 ? "" : "s"} pending verification
+          </strong>
+          <p>Queued scans release goods only after server verification.</p>
+          <Button
+            variant="secondary"
+            disabled={offline || pending}
+            onClick={() => void verify(queue[0].token)}
+          >
+            Verify next queued pass
+          </Button>
+          <button className="text-link" onClick={() => saveQueue([])}>
+            Clear pending queue
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+  return (
+    <section
+      className={`ref-pickups ${showScanner ? "ref-scanner-page glass-phone" : "ledger-phone"} ref-phone-page`}
+    >
+      {showScanner ? (
+        <>
+          <PhoneHeader
+            glass
+            title="Pickup"
+            back="/"
+            right={
+              <button className="live-label" onClick={() => setFilters(true)}>
+                <span className="live-dot" />
+                {offline ? "Offline" : "Live"}
+              </button>
+            }
+          />
+          <DateStrip
+            date={pool?.pickupAt || new Date(now).toISOString()}
+            count={3}
+            selected={dateIndex}
+            onChange={setDateIndex}
+          />
+          <Squircle cornerRadius={27} cornerSmoothing={1} className="ref-viewfinder" data-reveal>
+            <button
+              className="ref-viewfinder-trigger"
+              aria-label="Scan a pickup pass · Open QR scanner"
+              onClick={() => setFilters(true)}
+            >
+              <span className="ref-scan-corners" />
+              {token && activePreview ? (
+                <span className="ref-viewfinder-qr">
+                  <QRCodeSVG
+                    value={token}
+                    size={145}
+                    marginSize={2}
+                    fgColor="#1b3338"
+                    title="Verified Pamoja pickup QR"
+                  />
+                </span>
+              ) : (
+                <span className="ref-scan-empty">
+                  <Scan size={72} weight="light" />
+                  <span>Scan a pickup pass</span>
+                </span>
+              )}
+            </button>
+          </Squircle>
+          {activePreview ? (
+            <GlassCard className="ref-verified-card">
+              <div className="ref-verified-heading">
+                <span className="ref-verified-badge">
+                  {activePreview.alreadyCollected ? "Collected" : "Verified"}
+                </span>
+                <span>
+                  Order #
+                  {activePreview.membership.pickupBundle
+                    ? "1042"
+                    : activePreview.membership.id.split("-").at(-1)}
+                </span>
+              </div>
+              <h1>{shortName(activePreview.membership.name)}</h1>
+              <div className="ref-verified-items">
+                {items.map((item) => (
+                  <label key={item.membership.id}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        activePreview.alreadyCollected || checkedItems.includes(item.membership.id)
+                      }
+                      disabled={activePreview.alreadyCollected}
+                      onChange={(event) =>
+                        setCheckedItems(
+                          event.target.checked
+                            ? [...checkedItems, item.membership.id]
+                            : checkedItems.filter((id) => id !== item.membership.id),
+                        )
+                      }
+                    />
+                    <span>
+                      {productName(item.pool)} ×{item.membership.quantity}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {activePreview.alreadyCollected ? <Celebrate /> : null}
+            </GlassCard>
+          ) : (
+            <GlassCard className="ref-scan-intro">
+              <h1>Ready when you are.</h1>
+              <p>Scan the member’s pass, check the items, then release their pickup.</p>
+              <Button variant="secondary" onClick={() => setFilters(true)}>
+                Scan QR to verify
+                <QrCode size={20} />
+              </Button>
+            </GlassCard>
+          )}
+          <div className="ref-phone-footer ref-scanner-footer">
+            <button
+              className="ref-round-back"
+              aria-label="Back to collection list"
+              onClick={() => {
+                setScanner(false);
+                setPreview(null);
+                if (glass) window.location.assign("/pickups");
+              }}
+            >
+              <CaretLeft size={23} />
+            </button>
+            <Button
+              disabled={
+                !activePreview ||
+                !allChecked ||
+                activePreview.alreadyCollected ||
+                pending ||
+                !ready ||
+                offline
+              }
+              onClick={() => void redeem()}
+            >
+              {activePreview?.alreadyCollected
+                ? "Pickup collected"
+                : pending
+                  ? "Releasing…"
+                  : `Release ${itemCount || "checked"} items`}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <PhoneHeader
+            right={
+              <span className="ref-muted">
+                {new Date(
+                  new Date(pool?.pickupAt || now).getUTCFullYear(),
+                  new Date(pool?.pickupAt || now).getUTCMonth() - 1,
+                  1,
+                ).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" })}{" "}
+                →{" "}
+                {new Date(pool?.pickupAt || now).toLocaleDateString("en-GB", {
+                  month: "long",
+                  timeZone: "UTC",
+                })}
+              </span>
+            }
+          />
+          <div className="ref-pickup-title">
+            <h1>Pickup</h1>
+            <p>
+              {collected} of {members.length} collected
+            </p>
+          </div>
+          <DateStrip
+            date={pool?.pickupAt || new Date(now).toISOString()}
+            selected={dateIndex}
+            onChange={setDateIndex}
+          />
+          <div className="ref-collection-list" data-reveal>
+            <div className="ref-collection-group">
+              <span>{pool ? productName(pool) : "Community collections"}</span>
+              <button
+                aria-label={`${members.length - collected} left · Filter pickups`}
+                onClick={() => setFilters(true)}
+              >
+                {members.length - collected} left
+              </button>
             </div>
-            <div>
-              <span className="tiny-dot" />
-              {members.length - collected} waiting
+            <div className="ref-collection-rows">
+              {filtered.map((member) => (
+                <button
+                  className="ref-collection-row"
+                  key={member.id}
+                  onClick={() => void sample(member.id)}
+                  disabled={!ready || pending}
+                >
+                  <span className="ref-avatar">{initials(member.name)}</span>
+                  <span>{shortName(member.name)}</span>
+                  <small className={member.redeemedAt ? "ref-green" : "ref-muted"}>
+                    {member.redeemedAt ? "Collected" : "Waiting"}
+                  </small>
+                </button>
+              ))}
+              {!filtered.length ? (
+                <EmptyState
+                  title="Nothing waiting here"
+                  description="Try another pool or filter."
+                />
+              ) : null}
             </div>
-            {pools.length ? (
+          </div>
+          <div className="ref-phone-footer">
+            <Button
+              onClick={() => {
+                setScanner(true);
+                setFilters(true);
+              }}
+            >
+              Scan QR to verify
+              <QrCode size={22} />
+            </Button>
+          </div>
+          <BottomNav />
+        </>
+      )}
+      {offline ? (
+        <p className="ref-offline-note">
+          <WifiSlash size={16} />
+          Offline · scans will queue
+        </p>
+      ) : null}
+      <Modal
+        open={filters}
+        onClose={() => {
+          setFilters(false);
+          setCamera(false);
+        }}
+        title={showScanner ? "Scan a pickup pass" : "Find a collection"}
+        description={
+          showScanner
+            ? "Every pass is signed, time-limited and checked by the server."
+            : "Filter your collection list or scan a member’s pass."
+        }
+      >
+        <div className="form-stack">
+          {!showScanner ? (
+            <>
               <label>
                 Pickup pool
                 <select
                   value={pool?.id || ""}
                   onChange={(event) => setSelected(event.target.value)}
                 >
-                  {pools.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.name}
+                  {pools.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {productName(p)}
                     </option>
                   ))}
                 </select>
               </label>
-            ) : null}
-          </div>
-          <div className="collection-toolbar">
-            <div className="filter-tabs" aria-label="Filter pickups">
-              {["All pickups", "Waiting", "Collected"].map((item) => (
-                <button
-                  key={item}
-                  className={filter === item ? "selected" : ""}
-                  aria-pressed={filter === item}
-                  onClick={() => setFilter(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-            <input
-              className="search-input"
-              type="search"
-              placeholder="Find a neighbour…"
-              aria-label="Search pickups"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-          <section className="panel">
-            <SectionHeading title={pool?.name || "Community collections"}>
-              <span className="count-label">{filtered.length} members</span>
-            </SectionHeading>
-            {filtered.length ? (
-              <div className="table-scroll">
-                <table>
-                  <caption className="sr-only">Member collection status</caption>
-                  <thead>
-                    <tr>
-                      <th>Member</th>
-                      <th>Items</th>
-                      <th>Status</th>
-                      <th>
-                        <span className="sr-only">Load pass</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((member) => (
-                      <tr key={member.id}>
-                        <td>
-                          <span className="member-name">
-                            <span className="avatar-small">{member.name[0]}</span>
-                            {member.name}
-                          </span>
-                        </td>
-                        <td>
-                          {member.quantity} × {pool?.unit}
-                        </td>
-                        <td>
-                          <Badge status={member.redeemedAt ? "Collected" : "Waiting"} />
-                        </td>
-                        <td>
-                          <button
-                            className="row-arrow"
-                            onClick={() => void sample(member.id)}
-                            disabled={pending || !ready}
-                            aria-label={`Load ${member.name}'s demo pickup pass`}
-                          >
-                            <QrCode size={20} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <EmptyState
-                title="Nothing waiting here"
-                description="Choose another pool or filter. Pickups open after the supplier drop-off is confirmed."
-              />
-            )}
-          </section>
-        </div>
-        <aside className="scanner-column">
-          <section className="panel scanner-panel">
-            <div className="scanner-heading">
-              <span>
-                <Scan size={22} />
-              </span>
-              <div>
-                <p className="eyebrow">COLLECTION DESK</p>
-                <h2>Scan. Check. Together.</h2>
-              </div>
-            </div>
-            {camera ? (
-              <CameraScanner
-                onToken={(value) => void verify(value)}
-                onClose={() => setCamera(false)}
-              />
-            ) : (
-              <div className="scan-illustration">
-                <QrCode size={70} weight="light" />
-                <p>
-                  The right goods.
-                  <br />
-                  The right neighbour.
-                </p>
-              </div>
-            )}
-            <div className="scanner-actions">
-              <Button variant="dark" onClick={() => setCamera(true)} disabled={offline}>
-                <Camera size={18} />
-                Open camera
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => void sample()}
-                disabled={pending || !ready || offline || !members.length}
+              <div
+                className="filter-tabs"
+                aria-label={`${members.length - collected} left · Filter pickups`}
               >
-                Try a sample pass
-              </Button>
-            </div>
-            <form
-              className="form-stack scan-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void verify();
-              }}
-            >
+                {["All pickups", "Waiting", "Collected"].map((value) => (
+                  <button
+                    key={value}
+                    className={filter === value ? "selected" : ""}
+                    onClick={() => setFilter(value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
               <label>
-                Or paste the pickup QR token
-                <textarea
-                  rows={3}
-                  placeholder="Paste a signed pickup token…"
-                  value={token}
-                  onChange={(event) => {
-                    setToken(event.target.value);
-                    setPreview(null);
-                  }}
-                  maxLength={2000}
-                />
-              </label>
-              <Button
-                variant="secondary"
-                disabled={!token.trim() || pending || !ready}
-                type="submit"
-              >
-                {offline ? "Queue this scan" : pending ? "Verifying…" : "Verify pass"}
-                <ArrowRight size={17} />
-              </Button>
-            </form>
-            {queue.length ? (
-              <div className="queued-scans">
-                <strong>
-                  <Clock size={17} />
-                  {queue.length} scan{queue.length === 1 ? "" : "s"} pending verification
-                </strong>
-                <p>Queued scans never release goods without server verification.</p>
-                <Button
-                  variant="secondary"
-                  disabled={offline || pending}
-                  onClick={() => void verify(queue[0].token)}
-                >
-                  Verify next queued pass
-                </Button>
-                <button className="text-link" onClick={() => saveQueue([])}>
-                  Clear pending queue
-                </button>
-              </div>
-            ) : null}
-          </section>
-          {preview ? (
-            <section className="verified-panel" aria-live="polite">
-              <div>
-                <CheckCircle size={28} weight="fill" />
-                <h2>{preview.alreadyCollected ? "Already collected" : "Pass verified"}</h2>
-              </div>
-              <p>
-                {preview.membership.name}
-                <br />
-                <span>{preview.pool.name}</span>
-              </p>
-              <label className="release-checkbox">
+                Search pickups
                 <input
-                  type="checkbox"
-                  checked={preview.alreadyCollected || checked}
-                  disabled={preview.alreadyCollected}
-                  onChange={(event) => setChecked(event.target.checked)}
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Find a neighbour…"
                 />
-                <span>
-                  {preview.membership.quantity} × {preview.pool.unit}
-                </span>
               </label>
-              {preview.alreadyCollected ? (
-                <p className="collected-note">This pass cannot release goods again.</p>
-              ) : (
-                <Button
-                  disabled={!checked || pending || !ready || offline}
-                  onClick={() => void redeem()}
-                >
-                  {pending ? "Releasing…" : "Release checked items"}
-                  <ArrowRight size={17} />
-                </Button>
-              )}
-            </section>
-          ) : (
-            <p className="below-note">
-              <ShieldCheck size={19} />
-              Every pass is signed, time-limited and checked by the server. No pass can release
-              goods twice.
-            </p>
-          )}
-        </aside>
-      </div>
-    </>
+              <Button onClick={() => setFilters(false)}>Show collections</Button>
+            </>
+          ) : null}
+          {scanControls}
+        </div>
+      </Modal>
+    </section>
   );
 }

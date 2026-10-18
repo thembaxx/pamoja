@@ -8,6 +8,7 @@ import "@fontsource-variable/hanken-grotesk";
 import "@fontsource/instrument-serif/400.css";
 import "@fontsource/instrument-serif/400-italic.css";
 import "./globals.css";
+import "./reference.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

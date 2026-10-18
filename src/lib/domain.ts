@@ -109,6 +109,7 @@ export function payMembership(state: AppState, id: string) {
     throw new DomainError("The pool has closed. No payment was taken.", 409);
   const before = currentTier(pool.tiers, poolMembers(pool.id, state.memberships).length);
   member.status = "held";
+  if (state.weeklyDemand) state.weeklyDemand[pool.category] += member.amount;
   const count = poolMembers(pool.id, state.memberships).length;
   const after = currentTier(pool.tiers, count);
   const displayName = member.consent
@@ -250,24 +251,39 @@ export function deliverOrder(state: AppState, id: string) {
 export function previewPickup(state: AppState, membershipId: string): PickupPreview {
   const member = state.memberships.find((item) => item.id === membershipId);
   if (!member) throw new DomainError("This pickup pass could not be found.", 404);
-  const pool = getPool(state, member.poolId);
-  if (!["PickupOpen", "Settled"].includes(pool.status))
-    throw new DomainError("Collection is not open for this pool yet.", 409);
-  if (!["held", "released"].includes(member.status))
-    throw new DomainError("This pickup has not been paid for.", 409);
-  return { membership: member, pool, alreadyCollected: !!member.redeemedAt };
+  const bundled = member.pickupBundle
+    ? state.memberships.filter((item) => item.pickupBundle === member.pickupBundle)
+    : [member];
+  const items = bundled.map((membership) => {
+    const pool = getPool(state, membership.poolId);
+    if (!["PickupOpen", "Settled"].includes(pool.status))
+      throw new DomainError("Collection is not open for this pool yet.", 409);
+    if (!["held", "released"].includes(membership.status))
+      throw new DomainError("This pickup has not been paid for.", 409);
+    return { membership, pool };
+  });
+  return {
+    membership: member,
+    pool: getPool(state, member.poolId),
+    items,
+    alreadyCollected: items.every((item) => !!item.membership.redeemedAt),
+  };
 }
 export function redeemPickup(state: AppState, id: string) {
   const preview = previewPickup(state, id);
   if (preview.alreadyCollected) return preview;
-  preview.membership.redeemedAt = new Date().toISOString();
-  const all = poolMembers(preview.pool.id, state.memberships);
-  if (all.every((member) => !!member.redeemedAt)) preview.pool.status = "Settled";
+  const collectedAt = new Date().toISOString();
+  const remaining = preview.items.filter((item) => !item.membership.redeemedAt);
+  remaining.forEach(({ membership, pool }) => {
+    membership.redeemedAt = collectedAt;
+    if (poolMembers(pool.id, state.memberships).every((member) => !!member.redeemedAt))
+      pool.status = "Settled";
+  });
   addActivity(
     state,
     "pickup",
     "A pickup was collected",
-    `${preview.pool.name} · ${preview.membership.quantity} items released`,
+    `${preview.pool.name} · ${remaining.reduce((sum, item) => sum + item.membership.quantity, 0)} items released`,
   );
   return { ...preview, alreadyCollected: false };
 }

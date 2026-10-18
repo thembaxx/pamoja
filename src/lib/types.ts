@@ -23,6 +23,8 @@ export type Pool = {
 };
 export type Membership = {
   id: string;
+  personId?: string;
+  pickupBundle?: string;
   poolId: string;
   name: string;
   quantity: number;
@@ -39,6 +41,7 @@ export type Order = {
   id: string;
   reference: string;
   poolId: string | null;
+  external?: boolean;
   name: string;
   supplier: string;
   lines: OrderLine[];
@@ -63,6 +66,8 @@ export type AppState = {
   groupName: string;
   leaderName: string;
   currency: string;
+  openingEscrow?: number;
+  weeklyDemand?: Record<Category, number>;
   pools: Pool[];
   memberships: Membership[];
   orders: Order[];
@@ -70,5 +75,10 @@ export type AppState = {
   requests: Record<string, { fingerprint: string; result: unknown }>;
 };
 export type Snapshot = Omit<AppState, "requests"> & { asOf: number };
-export type PickupPreview = { membership: Membership; pool: Pool; alreadyCollected: boolean };
+export type PickupPreview = {
+  membership: Membership;
+  pool: Pool;
+  alreadyCollected: boolean;
+  items: { membership: Membership; pool: Pool }[];
+};
 export type ApiResult<T> = { data: T; error?: never } | { error: string; data?: never };

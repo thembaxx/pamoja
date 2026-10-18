@@ -1,36 +1,54 @@
 "use client";
 
-import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUpRight,
-  CalendarBlank,
-  CheckCircle,
-  CirclesThree,
-  HandCoins,
-  Plus,
-  ShieldCheck,
-  TrendUp,
-  UsersThree,
-  Wallet,
-} from "@phosphor-icons/react";
+import { ArrowRight, QrCode } from "@phosphor-icons/react";
+import { Squircle } from "@squircle-js/react";
 import Link from "next/link";
 import { useState } from "react";
 import { money, nextTier, poolMembers, priceFor } from "@/lib/money";
+import { communitySummary } from "@/lib/summary";
 import type { Category } from "@/lib/types";
-import { useApp } from "./provider";
+import { BottomNav, DisplayMoney, GlassCard, dayDate, productName, useDesign } from "./design";
 import { PoolTable } from "./pool-table";
-import { WorkspaceDate } from "./shell";
-import {
-  Button,
-  categoryNames,
-  LiveLabel,
-  Modal,
-  PageHeading,
-  ProductIcon,
-  SectionHeading,
-  TextLink,
-} from "./ui";
+import { useApp } from "./provider";
+import { BoardTopbar, WorkspaceMenu } from "./shell";
+import { ActionLink, Button, LiveLabel, Progress } from "./ui";
+
+export function DemandMap({
+  amounts = false,
+  onCategory,
+  category,
+}: {
+  amounts?: boolean;
+  onCategory?: (category: Category) => void;
+  category?: Category | null;
+}) {
+  const { data } = useApp();
+  const demand = data.weeklyDemand || { maize: 197600, oil: 130100, rice: 91600, soap: 62700 };
+  const total = Object.values(demand).reduce((sum, value) => sum + value, 0);
+  return (
+    <div className="ref-demand-map" aria-label="Demand by category">
+      {(["maize", "oil", "rice", "soap"] as Category[]).map((key) => (
+        <Squircle asChild cornerRadius={4} cornerSmoothing={1} key={key}>
+          <button
+            className={`ref-map-cell map-${key} ${category === key ? "selected" : ""}`}
+            onClick={() => onCategory?.(key)}
+            aria-pressed={category === key}
+            title={`Filter ${{ maize: "Maize", oil: "Cooking oil", rice: "Rice", soap: "Soap" }[key]} pools`}
+          >
+            <span>
+              {{ maize: "Maize", oil: "Cooking oil", rice: "Rice", soap: "Soap" }[key]}
+              <span className="map-separator"> · </span>
+              <span className="map-percent">{Math.round((demand[key] / total) * 100)}%</span>
+            </span>
+            {amounts ? (
+              <strong>{money(demand[key], data.currency).replace(/\.00$/, "")}</strong>
+            ) : null}
+          </button>
+        </Squircle>
+      ))}
+    </div>
+  );
+}
 
 export function Dashboard({
   onNewPool,
@@ -40,424 +58,272 @@ export function Dashboard({
   onInvite: (poolId?: string) => void;
 }) {
   const { data, ready, syncError } = useApp();
+  const { glass, href } = useDesign();
   const [category, setCategory] = useState<Category | null>(null);
-  const [breakdown, setBreakdown] = useState(false);
-  const open = data.pools.filter((pool) => pool.status === "Open");
-  const activeMembers = data.memberships.filter(
-    (member) => open.some((pool) => pool.id === member.poolId) && member.status === "held",
-  );
-  const escrow =
-    data.memberships
-      .filter((member) => member.status === "held")
-      .reduce((sum, member) => sum + member.amount - member.rebate, 0) +
-    data.orders
-      .filter((order) => order.poolId === null && !order.paidAt)
-      .reduce((sum, order) => sum + order.total, 0);
-  const savings = data.memberships
-    .filter((member) => ["held", "released"].includes(member.status))
-    .reduce((sum, member) => {
-      const pool = data.pools.find((item) => item.id === member.poolId);
-      return (
-        sum +
-        (pool
-          ? Math.max(0, pool.tiers[0].price * member.quantity - member.amount + member.rebate)
-          : 0)
-      );
-    }, 0);
-  const demand = (Object.keys(categoryNames) as Category[]).map((key) => {
-    const pools = open.filter((pool) => pool.category === key);
-    const members = activeMembers.filter((member) =>
-      pools.some((pool) => pool.id === member.poolId),
+  const [sort, setSort] = useState("default");
+  const { open, people, escrow, collected, collecting, pickup } = communitySummary(data);
+  const oil = open.find((pool) => pool.id === "oil");
+  const count = oil ? poolMembers(oil.id, data.memberships).length : 0;
+  const next = oil ? nextTier(oil.tiers, count) : undefined;
+  const short = next ? next.minMembers - count : 0;
+  const pending = data.memberships.filter((member) => member.status === "pending").length;
+  const first = open[0];
+  const poolList = open
+    .filter((pool) => !category || pool.category === category)
+    .sort((a, b) =>
+      sort === "closing"
+        ? a.closesAt.localeCompare(b.closesAt)
+        : sort === "members"
+          ? poolMembers(b.id, data.memberships).length - poolMembers(a.id, data.memberships).length
+          : 0,
     );
-    const amount = pools.reduce(
-      (sum, pool) =>
-        sum +
-        poolMembers(pool.id, data.memberships).reduce(
-          (value, member) => value + member.quantity,
-          0,
-        ) *
-          priceFor(pool, data.memberships),
-      0,
-    );
-    return {
-      key,
-      amount,
-      count: members.length,
-      quantity: members.reduce((sum, member) => sum + member.quantity, 0),
-    };
-  });
-  const demandTotal = demand.reduce((sum, item) => sum + item.amount, 0);
-  const score = open.length
-    ? Math.round(
-        (open.reduce((sum, pool) => {
-          const count = poolMembers(pool.id, data.memberships).length;
-          return sum + Math.min(1, count / (nextTier(pool.tiers, count)?.minMembers || count || 1));
-        }, 0) /
-          open.length) *
-          100,
-      )
-    : 0;
-  const oil = open.find((pool) => pool.category === "oil");
-  const oilCount = oil ? poolMembers(oil.id, data.memberships).length : 0;
-  const oilNext = oil ? nextTier(oil.tiers, oilCount) : undefined;
-  const readyPool = data.pools.find((pool) => pool.status === "Closed");
-  const pickup = data.pools.find((pool) => pool.status === "PickupOpen");
-  const order = data.orders.find((item) => item.status !== "Delivered");
-  const poolList = open.filter((pool) => !category || pool.category === category);
+  const rebates = data.memberships.reduce((sum, member) => sum + member.rebate, 0);
   return (
     <>
-      <PageHeading
-        eyebrow="YOUR COMMUNITY AT A GLANCE"
-        title={`Good morning, ${data.leaderName}.`}
-        description="Small contributions. A bigger difference."
-      >
-        <WorkspaceDate />
-        <Button variant="secondary" onClick={() => onInvite()}>
-          <UsersThree size={18} />
-          Invite members
-        </Button>
-        <Button onClick={onNewPool}>
-          <Plus size={19} />
-          New pool
-        </Button>
-      </PageHeading>
-      <section className="metrics" aria-label="Community overview">
-        <article className="metric">
-          <div className="metric-label">
-            Escrow held
-            <ShieldCheck size={19} />
+      <div className="ref-dashboard desktop-only">
+        <section className="ref-dashboard-center">
+          <BoardTopbar title="Dashboard" />
+          <div className="ref-escrow-overview" data-reveal>
+            <div>
+              <h1>Held in escrow this week</h1>
+              <DisplayMoney amount={escrow} currency={data.currency} />
+            </div>
+            <div className="ref-stat-tags">
+              <Link href="/pools">{open.length} pools</Link>
+              <Link href="/members">{people} members</Link>
+              <span>This week</span>
+            </div>
           </div>
-          <div className="metric-value">
-            {money(escrow, data.currency).split(".")[0]}
-            <span>.{money(escrow, data.currency).split(".")[1]}</span>
-          </div>
-          <p>
-            <span className="tiny-dot" />
-            Funded. Protected. Ready.
-          </p>
-        </article>
-        <article className="metric">
-          <div className="metric-label">
-            Live pools
-            <CirclesThree size={19} />
-          </div>
-          <div className="metric-value">
-            {open.length.toString().padStart(2, "0")}
-            <span className="metric-word">pools</span>
-          </div>
-          <p>
-            {data.pools.filter((pool) => pool.status === "Closed").length} ready for a supplier
-            order
-            <ArrowRight size={13} />
-          </p>
-        </article>
-        <article className="metric">
-          <div className="metric-label">
-            Members buying together
-            <UsersThree size={19} />
-          </div>
-          <div className="metric-value">
-            {activeMembers.length}
-            <span className="member-avatar-stack">
-              <span>N</span>
-              <span>T</span>
-              <span>L</span>
-            </span>
-          </div>
-          <p>Memberships across {open.length} open pools</p>
-        </article>
-        <article className="metric metric-savings">
-          <div className="metric-label">
-            Community savings
-            <TrendUp size={19} />
-          </div>
-          <div className="metric-value">
-            {money(savings, data.currency).split(".")[0]}
-            <span>.{money(savings, data.currency).split(".")[1]}</span>
-          </div>
-          <p>
-            <ArrowDown size={14} />
-            Better prices, bought together
-          </p>
-        </article>
-      </section>
-      <div className="dashboard-grid">
-        <div className="dashboard-main">
-          <section className="panel demand-panel">
-            <SectionHeading
-              title="A little demand. A lot of possibility."
-              subtitle="What your community is buying this week."
-            >
-              <LiveLabel paused={!ready || !!syncError}>LIVE DEMAND</LiveLabel>
-            </SectionHeading>
-            <div className="demand-total">
-              <strong>{money(demandTotal, data.currency)}</strong>
-              <span>pooled buying power</span>
-              <button className="text-link" onClick={() => setBreakdown(true)}>
-                View breakdown
-                <ArrowUpRight size={15} />
+          <DemandMap
+            amounts
+            category={category}
+            onCategory={(key) => setCategory(category === key ? null : key)}
+          />
+          <section className="ref-live-pools" data-reveal>
+            <div className="ref-section-heading">
+              <h2>
+                Live pools <small>({open.length})</small>
+              </h2>
+              <label className="ref-sort">
+                <span className="sr-only">Sort pools</span>
+                <select value={sort} onChange={(event) => setSort(event.target.value)}>
+                  <option value="default">Sort by</option>
+                  <option value="closing">Closing soon</option>
+                  <option value="members">Members</option>
+                </select>
+              </label>
+            </div>
+            <PoolTable pools={poolList} compact />
+            {category ? (
+              <button className="ref-clear-filter" onClick={() => setCategory(null)}>
+                Show all categories <ArrowRight size={15} />
               </button>
-            </div>
-            <div
-              className="treemap"
-              style={{
-                gridTemplateColumns: `${Math.max(0.35, demand[0].amount / (demandTotal || 1))}fr ${Math.max(0.2, (1 - demand[0].amount / (demandTotal || 1)) * 0.57)}fr ${Math.max(0.15, (1 - demand[0].amount / (demandTotal || 1)) * 0.43)}fr`,
-              }}
-            >
-              {demand.map(({ key, amount, count }, index) => (
-                <button
-                  key={key}
-                  className={`treemap-block treemap-${key} ${category === key ? "selected" : ""}`}
-                  onClick={() => setCategory(category === key ? null : key)}
-                  aria-pressed={category === key}
-                  style={index > 1 ? { gridColumn: index === 2 ? "2" : "3" } : undefined}
-                >
-                  <div className="treemap-top">
-                    <span>{categoryNames[key]}</span>
-                    <ArrowUpRight size={20} />
-                  </div>
-                  <ProductIcon category={key} size={index === 0 ? 72 : 42} />
-                  <div className="treemap-bottom">
-                    <strong>{money(amount, data.currency)}</strong>
-                    <span>{count} members</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="treemap-legend">
-              <span>
-                {demand.map(({ key }) => (
-                  <button
-                    onClick={() => setCategory(category === key ? null : key)}
-                    key={key}
-                    className={category === key ? "selected" : ""}
-                    aria-pressed={category === key}
-                  >
-                    <i className={`category-${key}`} />
-                    {categoryNames[key]}
-                  </button>
-                ))}
-              </span>
-              <span>
-                Click a category to explore
-                <ArrowUpRight size={12} />
-              </span>
-            </div>
+            ) : null}
           </section>
-          <section className="panel live-pools-panel">
-            <SectionHeading title={category ? `${categoryNames[category]} pools` : "Live pools"}>
-              <div className="section-actions">
-                {category ? (
-                  <button onClick={() => setCategory(null)} className="text-link">
-                    Clear filter
-                  </button>
-                ) : (
-                  <span className="count-label">{open.length} open</span>
-                )}
-                <TextLink href="/pools">All pools</TextLink>
+        </section>
+        <aside className="ref-dashboard-rail">
+          <div className="ref-rail-label">Quick actions</div>
+          <div className="ref-quick-actions">
+            <Button variant="dark" onClick={onNewPool}>
+              New pool
+            </Button>
+            <Button variant="secondary" onClick={() => onInvite()}>
+              Send invite
+            </Button>
+          </div>
+          <div className="ref-rail-label">
+            <span>Upcoming</span>
+            <span>This week</span>
+          </div>
+          <div className="ref-upcoming" data-reveal>
+            <Link href="/orders">
+              <div>
+                <strong>Supplier order</strong>
+                <small>
+                  {dayDate(first?.closesAt || new Date(data.asOf).toISOString(), true)} · {people}{" "}
+                  members
+                </small>
               </div>
-            </SectionHeading>
-            <PoolTable pools={poolList} />
-            <div className="panel-note">
-              <ShieldCheck size={16} />
-              <span>Member payments stay held until the supplier drop-off is confirmed.</span>
-            </div>
-          </section>
-          <section className="activity-section">
-            <SectionHeading title="Good things are happening">
-              <span className="eyebrow">LATEST ACTIVITY</span>
-            </SectionHeading>
-            <div className="activity-inline">
-              {data.activity.slice(0, 3).map((activity) => (
-                <article key={activity.id}>
-                  <span className={`activity-icon activity-${activity.kind}`}>
-                    {activity.kind === "tier" ? (
-                      <TrendUp size={20} />
-                    ) : activity.kind === "payment" ? (
-                      <Wallet size={20} />
-                    ) : (
-                      <UsersThree size={20} />
-                    )}
-                  </span>
-                  <div>
-                    <strong>{activity.title}</strong>
-                    <p>{activity.description}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        </div>
-        <aside className="dashboard-rail">
-          <section className="panel quick-actions">
-            <h2>Make it happen</h2>
-            <button onClick={onNewPool}>
-              <span className="quick-action-icon">
-                <Plus size={21} />
-              </span>
               <span>
-                <strong>Start a new pool</strong>
-                <small>Bring a better price closer</small>
+                {money(
+                  data.orders
+                    .filter((order) => !order.external && !order.paidAt)
+                    .reduce((sum, order) => sum + order.total, 0),
+                  data.currency,
+                )}
               </span>
-              <ArrowUpRight size={18} />
-            </button>
-            <button onClick={() => onInvite()}>
-              <span className="quick-action-icon">
-                <UsersThree size={21} />
-              </span>
-              <span>
-                <strong>Invite your neighbours</strong>
-                <small>More people. More savings.</small>
-              </span>
-              <ArrowUpRight size={18} />
-            </button>
-          </section>
-          <section className="panel upcoming-panel">
-            <SectionHeading title="Coming up">
-              <CalendarBlank size={18} />
-            </SectionHeading>
-            <div className="upcoming-list">
-              {[
-                ...(order
-                  ? [
-                      {
-                        date: order.deliverBy,
-                        title: "Supplier delivery",
-                        subtitle: order.reference,
-                        href: `/orders/${order.id}`,
-                        type: "order",
-                      },
-                    ]
-                  : []),
-                ...(pickup
-                  ? [
-                      {
-                        date: pickup.pickupAt,
-                        title: "Community pickup",
-                        subtitle: pickup.name.split(" · ")[0],
-                        href: "/pickups",
-                        type: "pickup",
-                      },
-                    ]
-                  : []),
-                ...(readyPool
-                  ? [
-                      {
-                        date: readyPool.closesAt,
-                        title: "Tier rebates ready",
-                        subtitle: readyPool.name.split(" · ")[0],
-                        href: "/payments",
-                        type: "rebate",
-                      },
-                    ]
-                  : []),
-              ].map((item) => (
-                <Link key={item.type} href={item.href}>
-                  <div className="date-tile">
-                    <strong>{new Date(item.date).getUTCDate()}</strong>
-                    <span>
-                      {new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" })
-                        .format(new Date(item.date))
-                        .toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>{item.subtitle}</p>
-                  </div>
-                  <ArrowUpRight size={15} />
-                </Link>
-              ))}
-            </div>
-            <div className="upcoming-footer">
-              A good week, in the making.
-              <CheckCircle size={15} />
-            </div>
-          </section>
-          <section className="pool-score">
-            <div className="score-heading">
-              <span className="eyebrow">YOUR POOL MOMENTUM</span>
-              <TrendUp size={22} />
-            </div>
-            <div className="score-number">
-              {score}
-              <span>/ 100</span>
-            </div>
-            <h2>Better, with every neighbour.</h2>
-            <p>A few small moves can unlock a lot.</p>
-            <div className="score-track">
-              <span style={{ width: `${score}%` }} />
-            </div>
-            <div className="score-nudges">
-              {oil && oilNext ? (
-                <button onClick={() => onInvite(oil.id)}>
-                  <span className="nudge-number">01</span>
-                  <span>
-                    <strong>{oilNext.minMembers - oilCount} more for oil’s next tier</strong>
-                    <small>Invite a few more neighbours</small>
-                  </span>
-                  <ArrowUpRight size={16} />
-                </button>
-              ) : null}
-              <button onClick={() => onInvite(open[0]?.id)}>
-                <span className="nudge-number">02</span>
-                <span>
-                  <strong>Every share moves the price</strong>
-                  <small>Send a pool to your group</small>
-                </span>
-                <ArrowUpRight size={16} />
-              </button>
-              {readyPool ? (
-                <Link href={`/pools/${readyPool.id}`}>
-                  <span className="nudge-number">03</span>
-                  <span>
-                    <strong>Your rice order is ready</strong>
-                    <small>Turn pooled demand into a delivery</small>
-                  </span>
-                  <ArrowUpRight size={16} />
-                </Link>
-              ) : null}
-            </div>
-            <Link href="/pools" className="score-cta">
-              Keep the momentum going
-              <ArrowRight size={18} />
             </Link>
-          </section>
-          <div className="rail-note">
-            <HandCoins size={25} weight="light" />
-            <p>
-              More hands in.
-              <br />
-              <strong>More money stays local.</strong>
-            </p>
+            <Link href="/pickups">
+              <div>
+                <strong>Pickup day</strong>
+                <small>
+                  {pickup ? dayDate(pickup.pickupAt, true) : "Upcoming"} · {collecting.length}{" "}
+                  members
+                </small>
+              </div>
+              <span>{collected} done</span>
+            </Link>
+            <Link href="/payments">
+              <div>
+                <strong>Tier rebates</strong>
+                <small>Returned at pool close</small>
+              </div>
+              <span>{money(rebates, data.currency)}</span>
+            </Link>
           </div>
+          <Squircle cornerRadius={8} className="ref-pool-score" data-reveal>
+            <div className="ref-score-top">
+              <div>
+                <span>Pool score</span>
+                <strong>
+                  7.5<small> / 10</small>
+                </strong>
+              </div>
+              <span className="ref-grade">B+</span>
+            </div>
+            <Button onClick={() => onInvite(oil?.id)}>
+              <span>Optimise</span>
+              <ArrowRight size={17} />
+            </Button>
+            <Link href={href("/pools/oil")}>
+              <div>
+                Oil pool {short} members short
+                <small>
+                  {next
+                    ? `Tier 2 unlocks ${money(next.price, data.currency)}`
+                    : "Best price unlocked"}
+                </small>
+              </div>
+              <ArrowRight size={17} />
+            </Link>
+            <Link href={href("/pools/rice")}>
+              <div>
+                Rice pool closes {first ? dayDate(first.closesAt) : "soon"}
+                <small>{poolMembers("rice", data.memberships).length} of 50 joined</small>
+              </div>
+              <ArrowRight size={17} />
+            </Link>
+            <Link href="/payments">
+              <div>
+                {pending} members haven’t paid<small>Escrow not yet funded</small>
+              </div>
+              <ArrowRight size={17} />
+            </Link>
+          </Squircle>
         </aside>
       </div>
-      <Modal
-        open={breakdown}
-        onClose={() => setBreakdown(false)}
-        title="Your pooled buying power"
-        description="Current tier price × the quantity of funded memberships in open pools."
-      >
-        <div className="breakdown-list">
-          {demand.map((item) => (
-            <div key={item.key}>
-              <span>
-                <i className={`category-${item.key}`} />
-                {categoryNames[item.key]}
-                <small>
-                  {item.quantity} units · {item.count} members
-                </small>
-              </span>
-              <strong>{money(item.amount, data.currency)}</strong>
+      <div className={`ref-phone-home mobile-only ${glass ? "glass-phone" : "ledger-phone"}`}>
+        {glass ? (
+          <>
+            <div className="ref-home-glass-header">
+              <WorkspaceMenu />
+              <span>pamoja</span>
+              <LiveLabel paused={!ready || !!syncError}>Live</LiveLabel>
             </div>
-          ))}
-          <div className="breakdown-total">
-            <strong>Total demand</strong>
-            <strong>{money(demandTotal, data.currency)}</strong>
-          </div>
-        </div>
-      </Modal>
+            <div className="ref-home-glass-escrow" data-reveal>
+              <h1>Held in escrow</h1>
+              <DisplayMoney amount={escrow} currency={data.currency} serif />
+              <p>
+                {people} members · {open.length} open pools
+              </p>
+            </div>
+            <GlassCard className="ref-demand-card">
+              <div className="ref-section-heading">
+                <h2>Demand by category</h2>
+                <span>This week</span>
+              </div>
+              <DemandMap
+                onCategory={(key) => setCategory(category === key ? null : key)}
+                category={category}
+              />
+            </GlassCard>
+            <div className="ref-section-heading ref-mobile-pools-heading">
+              <h2>Live pools</h2>
+              <ActionLink href={href("/pools")} variant="ghost">
+                View all
+              </ActionLink>
+            </div>
+            <div className="ref-home-pool-cards">
+              {poolList.slice(0, 2).map((pool) => {
+                const n = poolMembers(pool.id, data.memberships).length;
+                const t = nextTier(pool.tiers, n);
+                return (
+                  <GlassCard key={pool.id}>
+                    <Link href={href(`/pools/${pool.id}`)}>
+                      <div>
+                        <strong>{productName(pool)}</strong>
+                        <span>
+                          {n} / {t?.minMembers || n}
+                        </span>
+                      </div>
+                      <Progress
+                        value={n}
+                        max={t?.minMembers || n}
+                        label={`${pool.name} tier progress`}
+                      />
+                      <p>
+                        {money(priceFor(pool, data.memberships), data.currency)} now ·{" "}
+                        {t
+                          ? `${money(t.price, data.currency)} at ${t.minMembers}`
+                          : "Best price unlocked"}
+                      </p>
+                    </Link>
+                  </GlassCard>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="ref-home-ledger-header">
+              <WorkspaceMenu />
+              <ActionLink href={href("/pickups")} variant="secondary">
+                <QrCode size={20} />
+                Scan pickup
+              </ActionLink>
+            </div>
+            <nav className="ref-tabs" aria-label="Community views">
+              <span className="selected">Pools</span>
+              <Link href="/members">Members</Link>
+              <Link href={href("/orders")}>Orders</Link>
+            </nav>
+            <div className="ref-pool-count">
+              <h1>
+                <strong>{open.length}</strong> Open pools
+              </h1>
+              <span>{people} members</span>
+            </div>
+            <DemandMap
+              category={category}
+              onCategory={(key) => setCategory(category === key ? null : key)}
+            />
+            <div className="ref-home-actions">
+              <Button variant="dark" onClick={onNewPool}>
+                New pool
+              </Button>
+              <ActionLink variant="secondary" href={href("/pools")}>
+                My pools
+              </ActionLink>
+            </div>
+            <section className="ref-mobile-score" data-reveal>
+              <div>
+                <p>Pool score</p>
+                <h2>
+                  One pool from an A.
+                  <br />
+                  Oil needs {short} more.
+                </h2>
+                <span className="ref-grade">B+</span>
+              </div>
+              <Button onClick={() => onInvite(oil?.id)}>
+                <span>Share invite link</span>
+                <ArrowRight size={20} />
+              </Button>
+            </section>
+          </>
+        )}
+        <BottomNav />
+      </div>
     </>
   );
 }

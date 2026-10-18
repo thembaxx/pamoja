@@ -92,10 +92,10 @@ test("dark views remain accessible and phone layouts fit touch devices", async (
   page,
   browser,
 }) => {
-  await page.emulateMedia({ colorScheme: "dark" });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   for (const route of ["/about", "/", "/join/maize", "/pickups", "/supplier", "/settings"]) {
     await page.goto(route);
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     const result = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -118,7 +118,7 @@ test("dark views remain accessible and phone layouts fit touch devices", async (
     const screen = await phone.newPage();
     for (const route of ["/", "/about", "/join/maize", "/settings", "/supplier"]) {
       await screen.goto(route);
-      await expect(screen.locator("h1")).toBeVisible();
+      await expect(screen.getByRole("heading", { level: 1 })).toBeVisible();
       expect(
         await screen.evaluate(() => document.documentElement.scrollWidth),
         route,
@@ -208,7 +208,7 @@ test("a production install can reopen offline without caching private data", asy
       );
   });
   await page.goto("/payments");
-  await expect(page.getByText("Workspace synced", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-ready="true"]')).toBeVisible();
   const cached = await page.evaluate(async () => {
     const keys = await caches.keys();
     return (
@@ -243,4 +243,46 @@ test("a production install can reopen offline without caching private data", asy
   await context.setOffline(false);
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByRole("heading", { name: "Held safely. Handled clearly." })).toBeVisible();
+});
+
+test("glass phone directions and the member payment journey keep dark contrast", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  async function check() {
+    await expect(page.locator('[data-ready="true"]')).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    const result = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(
+      result.violations.map((issue) => ({
+        id: issue.id,
+        nodes: issue.nodes.map((node) => ({ target: node.target, summary: node.failureSummary })),
+      })),
+      page.url(),
+    ).toEqual([]);
+  }
+  for (const route of [
+    "/?style=glass",
+    "/pools/maize?style=glass",
+    "/orders?style=glass",
+    "/pickups?style=glass",
+    "/join/maize",
+  ]) {
+    await page.goto(route);
+    await check();
+  }
+  await page.getByRole("button", { name: "Continue · $25.80", exact: true }).click();
+  await page.getByLabel("Your name", { exact: true }).fill("Dark mode neighbour");
+  await page.getByRole("button", { name: "Continue to payment", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Pay into escrow", exact: true })).toBeVisible();
+  await check();
+  await page.getByRole("slider", { name: "Slide to pay", exact: true }).focus();
+  await page.keyboard.press("End");
+  await expect(page).toHaveURL(/\/pass\//);
+  await expect(page.getByRole("img", { name: "Your signed Pamoja pickup pass" })).toBeVisible();
+  await check();
 });
