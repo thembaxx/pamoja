@@ -30,7 +30,8 @@ test("money formats cents as South African rand", () => {
 });
 test("money defaults to the demo workspace currency", () => {
   assert.equal(createSeed().currency, "USD");
-  assert.equal(money(1250), "US$12,50");
+  assert.equal(money(1250), "$12.50");
+  assert.deepEqual(moneyParts(1250, "USD"), { whole: "$12", decimal: ".", fraction: "50" });
 });
 test("tier boundaries use funded members and the highest unlocked tier", () => {
   const { tiers } = createSeed().pools[0];
