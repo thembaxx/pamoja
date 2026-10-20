@@ -3,6 +3,9 @@ name: Pamoja checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "53 4 * * 1"
 
 permissions:
   contents: read
