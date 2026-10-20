@@ -1,14 +1,14 @@
 import type { Membership, Pool, Tier } from "./types";
 
 export function money(cents: number, currency = "USD") {
-  return new Intl.NumberFormat("en-ZA", {
+  return new Intl.NumberFormat(currency === "ZAR" ? "en-ZA" : "en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(cents / 100);
 }
 export function moneyParts(cents: number, currency = "ZAR") {
-  const parts = new Intl.NumberFormat("en-ZA", {
+  const parts = new Intl.NumberFormat(currency === "ZAR" ? "en-ZA" : "en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,

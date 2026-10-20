@@ -25,8 +25,13 @@ import {
 import { createSeed } from "../src/lib/seed";
 
 test("money formats cents as South African rand", () => {
-  assert.equal(money(1250), "R\u00a012,50");
+  assert.equal(money(1250, "ZAR"), "R\u00a012,50");
   assert.deepEqual(moneyParts(1250), { whole: "R\u00a012", decimal: ",", fraction: "50" });
+});
+test("money defaults to the demo workspace currency", () => {
+  assert.equal(createSeed().currency, "USD");
+  assert.equal(money(1250), "$12.50");
+  assert.deepEqual(moneyParts(1250, "USD"), { whole: "$12", decimal: ".", fraction: "50" });
 });
 test("tier boundaries use funded members and the highest unlocked tier", () => {
   const { tiers } = createSeed().pools[0];
