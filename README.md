@@ -18,10 +18,10 @@ Pamoja explores how South African communities could coordinate pooled buying: me
 
 *Existing committed application captures; no new or simulated images added in this documentation update.*
 
-| Leader workspace | Mobile member journey |
-| --- | --- |
+| Leader workspace                                                                           | Mobile member journey                                                        |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | ![Leader dashboard with pool activity and demand overview](docs/screenshots/dashboard.png) | ![Member joining a pooled order on mobile](docs/screenshots/member-join.png) |
-| ![Supplier fulfilment view](docs/screenshots/supplier-console.png) | ![Mobile pickup view](docs/screenshots/pickup-mobile.png) |
+| ![Supplier fulfilment view](docs/screenshots/supplier-console.png)                         | ![Mobile pickup view](docs/screenshots/pickup-mobile.png)                    |
 
 ---
 
