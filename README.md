@@ -16,7 +16,7 @@ Pamoja explores how South African communities could coordinate pooled buying: me
 
 ## Screenshots
 
-*Existing committed application captures; no new or simulated images added in this documentation update.*
+_Existing committed application captures; no new or simulated images added in this documentation update._
 
 | Leader workspace                                                                           | Mobile member journey                                                        |
 | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
