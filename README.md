@@ -4,7 +4,26 @@ A little each. A lot together. A runnable full-stack demo of community buying, f
 
 Built with **Next.js 16, TypeScript, Tailwind CSS 4, pnpm, Oxfmt, Oxlint, Phosphor Icons and Squircle.js**. Fonts are bundled locally. Data persists in SQLite using Node's built-in driver.
 
-![Pamoja leader dashboard](docs/screenshots/dashboard.png)
+## At a glance
+
+Pamoja explores how South African communities could coordinate pooled buying: members join demand pools, leaders review tiers and orders, suppliers fulfil simulated orders, and pickup staff validate collection passes.
+
+**Engineering highlights:** role-specific flows; tier-pricing and order-state tests; SQLite-backed demonstration data; QR collection passes; installable PWA and offline fallback; accessibility-minded Playwright checks.
+
+**Technology:** Next.js 16, React 19, TypeScript, Tailwind CSS 4, Node.js built-in SQLite, Phosphor icons and Squircle.js. See the [setup](#run) and [data boundaries](#data-updates-and-boundaries) below.
+
+**Status:** runnable **demo**, not a payment service. Identity/authorization, durable shared storage and licensed payments are required before accepting production transactions.
+
+## Screenshots
+
+_Existing committed application captures; no new or simulated images added in this documentation update._
+
+| Leader workspace                                                                           | Mobile member journey                                                        |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| ![Leader dashboard with pool activity and demand overview](docs/screenshots/dashboard.png) | ![Member joining a pooled order on mobile](docs/screenshots/member-join.png) |
+| ![Supplier fulfilment view](docs/screenshots/supplier-console.png)                         | ![Mobile pickup view](docs/screenshots/pickup-mobile.png)                    |
+
+---
 
 ## Run
 
