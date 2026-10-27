@@ -1,13 +1,17 @@
 import type { Membership, Pool, Tier } from "./types";
 
-export function money(cents: number, currency = "USD") {
+// Only new South African demo workspaces use this default. Persisted workspaces
+// continue to pass their own currency; changing this is not an FX conversion.
+export const DEFAULT_CURRENCY = "ZAR";
+
+export function money(cents: number, currency = DEFAULT_CURRENCY) {
   return new Intl.NumberFormat(currency === "ZAR" ? "en-ZA" : "en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(cents / 100);
 }
-export function moneyParts(cents: number, currency = "ZAR") {
+export function moneyParts(cents: number, currency = DEFAULT_CURRENCY) {
   const parts = new Intl.NumberFormat(currency === "ZAR" ? "en-ZA" : "en-US", {
     style: "currency",
     currency,

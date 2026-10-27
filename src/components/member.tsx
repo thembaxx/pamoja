@@ -18,7 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { money, nextTier, poolMembers, priceFor, shortDate } from "@/lib/money";
+import { money, moneyParts, nextTier, poolMembers, priceFor, shortDate } from "@/lib/money";
 import type { Membership } from "@/lib/types";
 import { api, useApp } from "./provider";
 import { Brand } from "./brand";
@@ -26,7 +26,7 @@ import { ThemeToggle } from "./device-settings";
 import { ActionLink, Button, EmptyState, LiveLabel, ProductIcon, Progress } from "./ui";
 
 function MemberShell({ children, step }: { children: ReactNode; step: number }) {
-  const { syncError } = useApp();
+  const { data, syncError } = useApp();
   return (
     <main id="main-content" className="member-world">
       <header className="member-header">
@@ -59,7 +59,7 @@ function MemberShell({ children, step }: { children: ReactNode; step: number }) 
         </p>
       </div>
       <footer className="member-footer">
-        Pamoja · Together, for less.<span>Sample market · USD</span>
+        Pamoja · Together, for less.<span>Sample market · {data.currency}</span>
       </footer>
     </main>
   );
@@ -72,11 +72,14 @@ function GlassCard({ children, className = "" }: { children: ReactNode; classNam
   );
 }
 function SerifMoney({ amount, currency }: { amount: number; currency: string }) {
-  const [whole, cents] = money(amount, currency).split(".");
+  const { whole, decimal, fraction } = moneyParts(amount, currency);
   return (
     <span className="serif-money">
       {whole}
-      <span>.{cents}</span>
+      <span>
+        {decimal}
+        {fraction}
+      </span>
     </span>
   );
 }

@@ -16,7 +16,7 @@ import {
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState } from "react";
-import { money, nextTier, poolMembers, priceFor } from "@/lib/money";
+import { money, moneyParts, nextTier, poolMembers, priceFor } from "@/lib/money";
 import type { Category } from "@/lib/types";
 import { useApp } from "./provider";
 import { PoolTable } from "./pool-table";
@@ -64,6 +64,8 @@ export function Dashboard({
           : 0)
       );
     }, 0);
+  const escrowParts = moneyParts(escrow, data.currency);
+  const savingsParts = moneyParts(savings, data.currency);
   const demand = (Object.keys(categoryNames) as Category[]).map((key) => {
     const pools = open.filter((pool) => pool.category === key);
     const members = activeMembers.filter((member) =>
@@ -128,8 +130,11 @@ export function Dashboard({
             <ShieldCheck size={19} />
           </div>
           <div className="metric-value">
-            {money(escrow, data.currency).split(".")[0]}
-            <span>.{money(escrow, data.currency).split(".")[1]}</span>
+            {escrowParts.whole}
+            <span>
+              {escrowParts.decimal}
+              {escrowParts.fraction}
+            </span>
           </div>
           <p>
             <span className="tiny-dot" />
@@ -172,8 +177,11 @@ export function Dashboard({
             <TrendUp size={19} />
           </div>
           <div className="metric-value">
-            {money(savings, data.currency).split(".")[0]}
-            <span>.{money(savings, data.currency).split(".")[1]}</span>
+            {savingsParts.whole}
+            <span>
+              {savingsParts.decimal}
+              {savingsParts.fraction}
+            </span>
           </div>
           <p>
             <ArrowDown size={14} />

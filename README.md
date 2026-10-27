@@ -93,11 +93,11 @@ The sample workspace also includes a closed rice pool ready to order and an olde
 The original [developer handoff](docs/developer-handoff.md) is preserved. Implementation decisions resolve its open questions:
 
 - **Brand:** Pamoja. Ledger styling for leaders and suppliers; glass styling for members. The supplied colors, three fonts, treemap, stage strip, striped bars and mint CTAs are used. Squircle.js supplies smooth corners on controls, product tiles and glass cards.
-- **Fee:** Suppliers pay 2.5%, rounded once to integer cents. A $1,475.90 invoice yields a $36.90 fee and $1,439.00 payout. Members pay no additional fee. Escrow does not incur a second fee.
+- **Fee:** Suppliers pay 2.5%, rounded once to integer cents. An illustrative R1 475,90 invoice yields a R36,90 fee and R1 439,00 payout. Members pay no additional fee. Escrow does not incur a second fee.
 - **Pricing:** Funded memberships unlock tiers; quantities determine order units. Pending payments do not raise member counts. At close, earlier members receive `(price paid − final price) × quantity` as a simulated rebate.
 - **Minimum:** The lowest tier must be funded before closing. A pool below the minimum can remain open or be cancelled for a full simulated refund. Cancellation is available before ordering.
 - **Release:** Supplier payout is released once at verified drop-off. Member pickup releases goods; it never releases the same money a second time.
-- **Market:** USD and the sample mobile-money/card options are retained. Market-specific currency and payment rails need a provider-backed implementation.
+- **Market:** New South African demo workspaces use ZAR and consistent en-ZA formatting. Existing saved workspaces retain their original currency; no currency conversion is performed. Prices and payment options are illustrative. A real supplier identity and order pilot, market pricing, and payment rails still need verified roles and a provider-backed implementation.
 - **Surface:** All three roles use responsive web screens, consistent with the requested Next.js stack. A React Native application is outside this repository.
 
 The Claude canvas required sign-in during implementation; the two supplied handoffs contain matching text and no embedded images. Exact visual comparison remains blocked. See [design QA](design-qa.md) for the evidence and screenshots.
