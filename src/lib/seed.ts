@@ -1,4 +1,4 @@
-import { currentTier, supplierSettlement } from "./money";
+import { currentTier, DEFAULT_CURRENCY, money, supplierSettlement } from "./money";
 import type { AppState, Category, Membership, Pool, Snapshot, Tier } from "./types";
 
 export function createPreviewSnapshot(): Snapshot {
@@ -162,7 +162,7 @@ export function createSeed(now = new Date()): AppState {
     version: 1,
     groupName: "Khayelitsha community",
     leaderName: "Themba",
-    currency: "USD",
+    currency: DEFAULT_CURRENCY,
     pools: [...pools, readyPool, pickupPool],
     memberships: [...memberships, ...readyMembers, ...pickupMembers],
     requests: {},
@@ -196,14 +196,14 @@ export function createSeed(now = new Date()): AppState {
         id: "activity-2",
         kind: "tier",
         title: "Laundry soap unlocked a better price",
-        description: "56 members are now paying $3.60 per pack",
+        description: `56 members are now paying ${money(360, DEFAULT_CURRENCY)} per pack`,
         createdAt: new Date(now.getTime() - 1080000).toISOString(),
       },
       {
         id: "activity-3",
         kind: "payment",
         title: "Friday rice rebates calculated",
-        description: "$80.00 going back to the community",
+        description: `${money(8000, DEFAULT_CURRENCY)} going back to the community`,
         createdAt: new Date(now.getTime() - 2700000).toISOString(),
       },
     ],
