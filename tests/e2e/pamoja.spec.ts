@@ -10,8 +10,11 @@ test("member joins, pays, supplier fulfils, leader delivers, and pickup releases
   await page.goto("/join/maize");
   await page.getByLabel("Your name").fill("Amina Test");
   await page.getByRole("button", { name: "Increase quantity" }).click();
-  await expect(page.getByRole("button", { name: "Join pool · $38.70" })).toBeEnabled();
-  await page.getByRole("button", { name: "Join pool · $38.70" }).click();
+  await expect(page.getByText("Sample market · ZAR", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Join pool · R 38,70", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Join pool · R 38,70", exact: true }).click();
   await expect(page.getByText("YOU GET", { exact: true })).toBeVisible();
   await page.getByRole("slider", { name: "Slide to confirm demo payment" }).focus();
   await page.keyboard.press("End");
@@ -20,6 +23,8 @@ test("member joins, pays, supplier fulfils, leader delivers, and pickup releases
   await expect(page.locator(".pass-qr svg")).toBeVisible();
   let snapshot: Snapshot = (await (await page.request.get("/api/snapshot")).json()).data;
   const member = snapshot.memberships.find((item) => item.name === "Amina Test")!;
+  expect(snapshot.currency).toBe("ZAR");
+  expect(member.amount).toBe(3870);
   expect(member.quantity).toBe(3);
   expect(member.status).toBe("held");
   expect(
