@@ -129,6 +129,32 @@ test("dark views remain accessible and phone layouts fit touch devices", async (
   }
 });
 
+test("member name input keeps desktop sizing and a scalable phone font floor", async ({
+  page,
+  browser,
+}) => {
+  await page.goto("/join/maize");
+  await expect(page.getByLabel("Your name")).toHaveCSS("font-size", "12px");
+  const phone = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    const screen = await phone.newPage();
+    await screen.goto("/join/maize");
+    const name = screen.getByLabel("Your name");
+    await name.focus();
+    await expect(name).toHaveCSS("font-size", "16px");
+    await name.evaluate((input) => {
+      input.parentElement!.style.fontSize = "20px";
+    });
+    await expect(name).toHaveCSS("font-size", "20px");
+  } finally {
+    await phone.close();
+  }
+});
+
 test("installation uses the browser prompt and falls back to accessible instructions", async ({
   page,
 }) => {
