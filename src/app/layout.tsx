@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   title: { default: siteTitle, template: "%s · Pamoja" },
   description: siteDescription,
   applicationName: siteName,
-  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Pamoja" },
   icons: {
     icon: [
