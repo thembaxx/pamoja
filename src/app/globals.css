@@ -180,29 +180,37 @@ svg {
   background: var(--mint);
   color: #1b3338;
 }
-.button-primary:hover:not(:disabled) {
-  background: #a6e995;
+@media (hover: hover) and (pointer: fine) {
+  .button-primary:hover:not(:disabled) {
+    background: #a6e995;
+  }
 }
 .button-secondary {
   background: var(--surface-hover);
   color: var(--ink);
 }
-.button-secondary:hover:not(:disabled) {
-  background: var(--surface-pressed);
+@media (hover: hover) and (pointer: fine) {
+  .button-secondary:hover:not(:disabled) {
+    background: var(--surface-pressed);
+  }
 }
 .button-dark {
   background: var(--forest);
   color: #fff;
 }
-.button-dark:hover:not(:disabled) {
-  background: #2b4d51;
+@media (hover: hover) and (pointer: fine) {
+  .button-dark:hover:not(:disabled) {
+    background: #2b4d51;
+  }
 }
 .button-ghost {
   background: transparent;
   padding-inline: 0;
 }
-.button-ghost:hover {
-  color: var(--success-ink);
+@media (hover: hover) and (pointer: fine) {
+  .button-ghost:hover {
+    color: var(--success-ink);
+  }
 }
 .button-danger {
   color: #fff;
@@ -225,8 +233,10 @@ svg {
   height: 36px;
   border-radius: 8px;
 }
-.icon-button:hover {
-  background: #d4d6d244;
+@media (hover: hover) and (pointer: fine) {
+  .icon-button:hover {
+    background: #d4d6d244;
+  }
 }
 .eyebrow {
   font-size: 10px;
@@ -240,9 +250,11 @@ svg {
   font-weight: 600;
   white-space: nowrap;
 }
-.text-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+@media (hover: hover) and (pointer: fine) {
+  .text-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
 }
 .back-link {
   @apply inline-flex items-center gap-2;
@@ -250,8 +262,10 @@ svg {
   color: var(--muted);
   font-size: 12px;
 }
-.back-link:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .back-link:hover {
+    color: var(--ink);
+  }
 }
 .live-label {
   @apply inline-flex items-center gap-1.5;
@@ -561,9 +575,11 @@ svg {
     background 0.2s,
     color 0.2s;
 }
-.nav-link:hover {
-  color: #f3f9ed;
-  background: #ffffff08;
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    color: #f3f9ed;
+    background: #ffffff08;
+  }
 }
 .nav-link.active {
   color: var(--mint);
@@ -692,8 +708,10 @@ svg {
   @apply inline-flex items-center gap-1.5;
   font-size: 10px;
 }
-.role-switch:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .role-switch:hover {
+    text-decoration: underline;
+  }
 }
 .notification-button {
   position: relative;
@@ -892,8 +910,10 @@ svg {
   overflow: hidden;
   transition: filter 0.15s;
 }
-.treemap-block:hover {
-  filter: brightness(0.97);
+@media (hover: hover) and (pointer: fine) {
+  .treemap-block:hover {
+    filter: brightness(0.97);
+  }
 }
 .treemap-block.selected {
   box-shadow: inset 0 0 0 3px var(--ink);
@@ -1324,8 +1344,10 @@ td {
 tbody tr:last-child > td {
   border-bottom: 0;
 }
-tbody tr:hover {
-  background: var(--surface-soft);
+@media (hover: hover) and (pointer: fine) {
+  tbody tr:hover {
+    background: var(--surface-soft);
+  }
 }
 td strong {
   font-weight: 550;
@@ -1355,9 +1377,11 @@ td small {
   padding-right: 16px;
   width: 20px;
 }
-.pool-name-link:hover strong {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+@media (hover: hover) and (pointer: fine) {
+  .pool-name-link:hover strong {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
 }
 .tier-progress {
   min-width: 111px;
@@ -1406,9 +1430,11 @@ td small {
   width: 30px;
   color: var(--muted);
 }
-.row-arrow:hover {
-  color: var(--ink);
-  background: var(--surface-hover);
+@media (hover: hover) and (pointer: fine) {
+  .row-arrow:hover {
+    color: var(--ink);
+    background: var(--surface-hover);
+  }
 }
 .collection-toolbar {
   @apply flex flex-wrap items-center justify-between gap-4;
@@ -1488,15 +1514,19 @@ td small {
   width: 30px;
   border: 1px solid var(--line);
 }
-.pagination button:hover:not(:disabled) {
-  background: var(--surface-hover);
+@media (hover: hover) and (pointer: fine) {
+  .pagination button:hover:not(:disabled) {
+    background: var(--surface-hover);
+  }
 }
 .table-title {
   display: inline-block;
   font-weight: 600;
 }
-.table-title:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .table-title:hover {
+    text-decoration: underline;
+  }
 }
 .table-title small {
   font-weight: 400;
@@ -1774,8 +1804,10 @@ td small {
   font-size: 10px;
   margin-left: 4px;
 }
-.cancel-pool:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .cancel-pool:hover {
+    text-decoration: underline;
+  }
 }
 .ready-order-banner {
   @apply flex items-center gap-4;
@@ -1858,8 +1890,10 @@ td small {
   display: block;
   font-size: 12px;
 }
-.table-select:hover strong {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .table-select:hover strong {
+    text-decoration: underline;
+  }
 }
 .selected-row {
   background: var(--surface-soft);
@@ -2813,8 +2847,10 @@ input[type="radio"] {
   background: var(--forest);
   color: #e5f5dc;
 }
-.member-primary:hover:not(:disabled) {
-  background: #2d4b45;
+@media (hover: hover) and (pointer: fine) {
+  .member-primary:hover:not(:disabled) {
+    background: #2d4b45;
+  }
 }
 .member-date-note {
   font-size: 9px;
@@ -4382,10 +4418,12 @@ input[type="radio"] {
   gap: 28px;
   font-size: 12px;
 }
-.about-header a:hover,
-.about-footer a:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+@media (hover: hover) and (pointer: fine) {
+  .about-header a:hover,
+  .about-footer a:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
 }
 .about-header nav > a {
   display: inline-flex;
@@ -4508,8 +4546,10 @@ input[type="radio"] {
   border-bottom: 1px solid var(--line);
   font-size: 14px;
 }
-.about-roles nav a:hover {
-  color: var(--success-ink);
+@media (hover: hover) and (pointer: fine) {
+  .about-roles nav a:hover {
+    color: var(--success-ink);
+  }
 }
 .about-boundaries {
   border: 1px solid var(--line);
@@ -4655,6 +4695,9 @@ input[type="radio"] {
   select,
   textarea {
     font-size: 16px;
+  }
+  .copy-field > input {
+    font-size: 16px !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
