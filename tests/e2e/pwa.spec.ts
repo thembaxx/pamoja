@@ -11,6 +11,11 @@ test("public SEO is readable without JavaScript and workspace pages stay out of 
     const publicPage = await context.newPage();
     await publicPage.goto("/about");
     await expect(publicPage.getByRole("heading", { level: 1 })).toContainText("A little each.");
+    await expect(publicPage.locator('link[rel="manifest"]')).toHaveCount(1);
+    await expect(publicPage.locator('head link[rel="manifest"]')).toHaveAttribute(
+      "href",
+      "/manifest.webmanifest?theme=light",
+    );
     await expect(publicPage.locator('link[rel="canonical"]')).toHaveAttribute(
       "href",
       `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/about`,
@@ -60,10 +65,15 @@ test("system theme, explicit preference and browser chrome stay aligned across r
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/settings");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  const manifest = page.locator('link[rel="manifest"]');
+  await expect(manifest).toHaveCount(1);
+  await expect(manifest).toHaveAttribute("href", /theme=dark$/);
   await page.getByRole("radio", { name: "Light", exact: true }).check();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(manifest).toHaveCount(1);
+  await expect(manifest).toHaveAttribute("href", /theme=light$/);
   await expect(page.locator('meta[name="theme-color"]').first()).toHaveAttribute(
     "content",
     "#f3f3f1",
@@ -79,7 +89,12 @@ test("system theme, explicit preference and browser chrome stay aligned across r
     "content",
     "#142528",
   );
-  await expect(page.locator('link[rel="manifest"]')).toHaveAttribute("href", /theme=dark$/);
+  await expect(manifest).toHaveCount(1);
+  await expect(manifest).toHaveAttribute("href", /theme=dark$/);
+  await page.getByRole("link", { name: "Pamoja home", exact: true }).click();
+  await expect(page).toHaveURL("/");
+  await expect(manifest).toHaveCount(1);
+  await expect(manifest).toHaveAttribute("href", /theme=dark$/);
   const installedTheme = await (await page.request.get("/manifest.webmanifest?theme=dark")).json();
   expect(installedTheme.background_color).toBe("#142528");
   expect(installedTheme.theme_color).toBe("#142528");
